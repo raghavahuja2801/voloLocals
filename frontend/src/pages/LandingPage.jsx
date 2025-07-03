@@ -6,7 +6,7 @@ import Footer from '../components/Footer'
 export default function LandingPage() {
   return (
      <div className="flex flex-col flex-1 min-h-screen w-screen bg-white overflow-x-hidden">
-      <Navbar isLoggedIn={false} />
+      <Navbar />
       <main className="flex-grow flex flex-col items-start justify-center bg-gray-50 w-full">
 +        <div className="w-full max-w-4xl mx-auto text-center md:text-left px-4 py-24 md:py-48">
         <h1 className="text-5xl font-bold text-gray-900 mb-4">Welcome to VoloLocals</h1>

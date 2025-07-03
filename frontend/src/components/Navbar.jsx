@@ -1,17 +1,23 @@
 import React, { useState } from 'react'
-import { Menu, X, ChevronDown, ChevronRight, User } from 'lucide-react'
+import { Menu, X, ChevronDown, ChevronRight, User, LogOut } from 'lucide-react'
+import { useAuth } from '../contexts/AuthContext'
 
-/**
- * Props:
- * - isLoggedIn: boolean
- */
-export default function Navbar({ isLoggedIn }) {
+export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [exploreOpen, setExploreOpen] = useState(false)
+  const { currentUser, logout } = useAuth()
+
+  const isLoggedIn = Boolean(currentUser)
 
   const authLinks = isLoggedIn
-    ? [{ label: 'My Requests', href: '/requests' }, { label: 'Account', href: '/account' }]
-    : [{ label: 'Login', href: '/login' }, { label: 'Join as a Professional', href: '/join' }]
+    ? [
+        { label: 'My Requests', href: '/requests' },
+        { label: 'Account', href: '/account' }
+      ]
+    : [
+        { label: 'Login', href: '/login' },
+        { label: 'Join as a Professional', href: '/join' }
+      ]
 
   const exploreSections = [
     {
@@ -41,10 +47,19 @@ export default function Navbar({ isLoggedIn }) {
     }
   ]
 
+  const handleLogout = async () => {
+    try {
+      await logout()
+      setMenuOpen(false)
+    } catch (err) {
+      console.error('Logout error:', err)
+    }
+  }
+
   return (
     <nav className="sticky top-0 bg-white border-b shadow z-30">
       <div className="container mx-auto flex items-center justify-between px-4 py-3">
-        {/* Left: Logo + Explore */}
+        {/* Logo + Explore */}
         <div className="flex items-center space-x-8">
           <a href="/" className="flex items-center">
             <img src="/image.png" alt="Logo" className="h-14 w-auto" />
@@ -54,7 +69,10 @@ export default function Navbar({ isLoggedIn }) {
               onClick={() => setExploreOpen(o => !o)}
               className="flex items-center text-gray-800 hover:text-gray-900 font-medium"
             >
-              Explore <ChevronDown className={`w-4 h-4 ml-1 transition-transform ${exploreOpen ? 'rotate-180' : ''}`} />
+              Explore
+              <ChevronDown
+                className={`w-4 h-4 ml-1 transition-transform ${exploreOpen ? 'rotate-180' : ''}`}
+              />
             </button>
             <div
               className={`absolute left-0 top-full mt-2 bg-white border rounded-lg shadow-lg transition-opacity duration-200 ${
@@ -67,7 +85,10 @@ export default function Navbar({ isLoggedIn }) {
                   <div key={sec.title}>
                     <div className="flex justify-between items-center mb-2">
                       <span className="font-semibold text-gray-800">{sec.title}</span>
-                      <a href={sec.seeAll} className="text-sm text-gray-500 hover:text-gray-700">
+                      <a
+                        href={sec.seeAll}
+                        className="text-sm text-gray-500 hover:text-gray-700"
+                      >
                         See all
                       </a>
                     </div>
@@ -91,31 +112,44 @@ export default function Navbar({ isLoggedIn }) {
           </div>
         </div>
 
-        {/* Right: Auth Links & Mobile Toggle */}
+        {/* Auth Links + Toggle */}
         <div className="flex items-center space-x-6">
-          <div className="hidden md:flex items-center space-x-6">
-            <a href={authLinks[0].href} className="text-gray-800 hover:text-gray-900 font-medium">
-              {authLinks[0].label}
-            </a>
-            <a
-              href={authLinks[1].href}
-              className="flex items-center bg-blue-600 text-white px-4 py-2 rounded-full hover:bg-blue-700 transition"
-            >
-              {authLinks[1].label === 'Join as a Professional' && <User className="w-4 h-4 mr-2 text-white" />}
-              <span className="text-white font-medium">{authLinks[1].label}</span>
-            </a>
+          <div className="hidden md:flex items-center space-x-4">
+            {authLinks.map(link => (
+              <a
+                key={link.label}
+                href={link.href}
+                className="text-gray-800 hover:text-gray-900 font-medium"
+              >
+                {link.label}
+              </a>
+            ))}
+            {isLoggedIn && (
+              <button
+                onClick={handleLogout}
+                className="flex items-center text-gray-600 hover:text-gray-800"
+              >
+                <LogOut className="w-4 h-4 mr-1" />
+                Logout
+              </button>
+            )}
           </div>
+
           <button
             onClick={() => setMenuOpen(o => !o)}
             className="md:hidden bg-white p-2 rounded focus:outline-none"
             aria-label="Toggle menu"
           >
-            {menuOpen ? <X className="w-6 h-6 text-gray-800" /> : <Menu className="w-6 h-6 text-gray-800" />}
+            {menuOpen ? (
+              <X className="w-6 h-6 text-gray-800" />
+            ) : (
+              <Menu className="w-6 h-6 text-gray-800" />
+            )}
           </button>
         </div>
       </div>
 
-      {/* Mobile Slide Down */}
+      {/* Mobile Panel */}
       <div
         className={`md:hidden overflow-hidden transition-[max-height] duration-300 ease-in-out bg-white border-t ${
           menuOpen ? 'max-h-screen' : 'max-h-0'
@@ -127,7 +161,10 @@ export default function Navbar({ isLoggedIn }) {
               onClick={() => setExploreOpen(o => !o)}
               className="w-full text-left flex justify-between items-center text-gray-800 font-medium"
             >
-              Explore <ChevronDown className={`w-5 h-5 transition-transform ${exploreOpen ? 'rotate-180' : ''}`} />
+              Explore
+              <ChevronDown
+                className={`w-5 h-5 transition-transform ${exploreOpen ? 'rotate-180' : ''}`}
+              />
             </button>
             {exploreOpen && (
               <div className="mt-4 space-y-4">
@@ -135,14 +172,20 @@ export default function Navbar({ isLoggedIn }) {
                   <div key={sec.title}>
                     <div className="flex justify-between items-center mb-2">
                       <span className="font-semibold text-gray-800">{sec.title}</span>
-                      <a href={sec.seeAll} className="text-sm text-gray-500 hover:text-gray-700">
+                      <a
+                        href={sec.seeAll}
+                        className="text-sm text-gray-500 hover:text-gray-700"
+                      >
                         See all
                       </a>
                     </div>
                     <ul className="space-y-2">
                       {sec.items.map(item => (
                         <li key={item.label}>
-                          <a href={item.href} className="block text-gray-600 hover:text-gray-900">
+                          <a
+                            href={item.href}
+                            className="block text-gray-600 hover:text-gray-900"
+                          >
                             {item.label}
                           </a>
                         </li>
@@ -154,16 +197,24 @@ export default function Navbar({ isLoggedIn }) {
             )}
           </div>
           <div className="p-4 space-y-2 text-center">
-            <a href={authLinks[0].href} className="block text-gray-800 hover:text-gray-900 font-medium">
-              {authLinks[0].label} 
-            </a>
-            <a
-              href={authLinks[1].href}
-              className="flex items-center justify-center bg-blue-600 text-white px-4 py-2 rounded-full hover:bg-blue-700 transition"
-            >
-              {authLinks[1].label === 'Join as a Professional' && <User className="w-4 h-4 mr-2 text-white" />}
-              <span className="text-white font-medium">{authLinks[1].label}</span>
-            </a>
+            {authLinks.map(link => (
+              <a
+                key={link.label}
+                href={link.href}
+                className="block text-gray-800 hover:text-gray-900 font-medium"
+              >
+                {link.label}
+              </a>
+            ))}
+            {isLoggedIn && (
+              <button
+                onClick={handleLogout}
+                className="flex items-center justify-center w-full text-gray-600 hover:text-gray-800 mt-2"
+              >
+                <LogOut className="w-4 h-4 mr-1" />
+                Logout
+              </button>
+            )}
           </div>
         </div>
       </div>

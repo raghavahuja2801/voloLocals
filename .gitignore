@@ -36,6 +36,9 @@ coverage/
 *.njsproj
 *.sln
 
+# ─── Temporary files ───────────────────────────────────────────────────────────
+frontend/src/firebase.js
+
 # ─── OS files ──────────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
