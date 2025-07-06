@@ -6,6 +6,7 @@ const {
   getLeadById,
   updateLead,
   deleteLead,
+  getLeadsByUidAdmin,
 } = require('../models/leadModel');
 
 
@@ -22,24 +23,18 @@ const {
 
 exports.generateLead = async (req, res) => {
   // ignore req.body for now, spit back random lead
-  const randomLead = {
-    firstName: faker.name.firstName(),
-    lastName: faker.name.lastName(),
-    email: faker.internet.email(),
-    phone: faker.phone.number(),
-    company: faker.company.name(),
-    // …add whatever fields you’ll need later
-  };
+  
 
   try {
     const payload = {
       uid: req.user.uid, // from authenticate middleware
-      ...randomLead
+      ...req.body
         };
     const lead = await createLead(payload);
     res.status(201).json({ success: true, lead });
   }
     catch (error) {
+        console.error('Error creating lead:', error);
         res.status(500);
         next(err);
     }
@@ -56,9 +51,21 @@ exports.listLeads = async (req, res) => {
   }
 };
 
+exports.listAllLeads = async (req, res) => {
+  try {
+    const leads = await getLeadsByUidAdmin(); // Assuming this fetches all leads for admin
+    res.json({ success: true, leads });
+  } catch (err) {
+    res.status(500);
+    next(err);
+  }
+};
+
 exports.getLead = async (req, res) => {
   try {
-    const lead = await getLeadById(req.user.uid, req.params.id);
+    const lead = await getLeadById(req.body.uid ,req.params.id);
+    console.log('Fetching lead with ID:', req.params.id, 'for user:', req.user.uid);
+    console.log('Lead data:', lead);
     if (!lead) return res.status(404).json({ success: false, error: 'Lead not found' });
     res.json({ success: true, lead });
   } catch (err) {

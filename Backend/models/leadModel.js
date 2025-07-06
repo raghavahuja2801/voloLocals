@@ -20,11 +20,19 @@ async function getLeadsByUid(uid) {
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 }
 
+async function getLeadsByUidAdmin() {
+  const snapshot = await leadsCollection
+    .orderBy('createdAt', 'desc')
+    .get();
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+}
+
 async function getLeadById(uid, id) {
   const docRef = leadsCollection.doc(id);
   const snap = await docRef.get();
 
   if (!snap.exists || snap.data().uid !== uid) {
+    console.error(`Lead with id ${id} not found or does not belong to user ${uid}`);
     return null;
   }
   return { id: snap.id, ...snap.data() };

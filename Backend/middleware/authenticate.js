@@ -1,21 +1,25 @@
-// middleware/authenticate.js
-const {admin} = require('../config/firebaseAdmin');
+const { auth } = require('../config/firebaseAdmin');
 
 async function authenticate(req, res, next) {
-  const authHeader = req.header('Authorization') || '';
-  const match = authHeader.match(/^Bearer (.+)$/);
-  if (!match) {
-    return res.status(401).json({ error: 'No token provided' });
+  const sessionCookie = req.cookies.session || '';
+  if (!sessionCookie) {
+    console.warn('No session cookie found');
+    return res.status(401).json({ error: 'Not authenticated' });
   }
 
-  const idToken = match[1];
   try {
-    const decoded = await admin.auth().verifyIdToken(idToken);
-    req.user = { uid: decoded.uid, email: decoded.email };  // attach whatever you need
+    const decoded = await auth.verifySessionCookie(sessionCookie, true);
+    // Attach the same user info you were using before
+    req.user = {
+      uid:   decoded.uid,
+      email: decoded.email,
+      role:  decoded.role || 'user'
+    };
     next();
-  } catch (err) {
-    console.error('Firebase auth error:', err);
-    res.status(401).json({ error: 'Invalid or expired token' });
+  } catch (e) {
+    console.error('Invalid session cookie', e);
+    res.clearCookie('session');
+    res.status(401).json({ error: 'Session expired' });
   }
 }
 

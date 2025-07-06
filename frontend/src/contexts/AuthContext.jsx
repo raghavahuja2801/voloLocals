@@ -1,67 +1,113 @@
-// src/contexts/AuthContext.jsx
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged,
-  sendPasswordResetEmail,
-} from 'firebase/auth';
-import { auth } from '../firebase';
+import React, { createContext, useContext, useState, useEffect } from 'react'
 
-// Create context
-const AuthContext = createContext({});
+const AuthContext = createContext()
 
-// Custom hook for easy consumption
 export function useAuth() {
-  return useContext(AuthContext);
+  return useContext(AuthContext)
 }
 
-// Provider component
 export function AuthProvider({ children }) {
-  const [currentUser, setCurrentUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [authLoading, setAuthLoading] = useState(false)
 
-  // Signup function
-  function signup(email, password) {
-    return createUserWithEmailAndPassword(auth, email, password);
+
+
+  // Fetch user profile from backend using stored cookie
+  const fetchProfile = async () => {
+    try {
+      const res = await fetch('http://localhost:3000/api/auth/profile', {
+        credentials: 'include',
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setCurrentUser(data.user)
+      } else {
+        setCurrentUser(null)
+      }
+    } catch (err) {
+      console.error('Profile fetch error:', err)
+      setCurrentUser(null)
+    }
+    setLoading(false)
   }
 
-  // Login function
-  function login(email, password) {
-    return signInWithEmailAndPassword(auth, email, password);
+  const login = async (email, password) => {
+    const res = await fetch('http://localhost:3000/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ email, password }),
+    })
+    if (!res.ok) {
+      const err = await res.text()
+      throw new Error(err || 'Login failed')
+    }
+    await fetchProfile()
   }
 
-  // Logout function
-  function logout() {
-    return signOut(auth);
+
+
+  async function register(email, password, displayName, role) {
+    setAuthLoading(true)
+    // 1) register
+    const res = await fetch('http://localhost:3000/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, displayName, role }),
+    })
+    if (!res.ok) {
+      const err = await res.text()
+      throw new Error(err || 'Registration failed')
+    }
+
+    // 2) login (so cookie is set)
+    await fetch('http://localhost:3000/api/auth/login', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    }).then(r => {
+      if (!r.ok) throw new Error('Login failed')
+    })
+
+    // 3) re–fetch profile
+    const profile = await fetch('http://localhost:3000/api/auth/profile', {
+      credentials: 'include',
+    })
+      .then(r => r.json())
+      .then(json => {
+        if (!json.success) throw new Error('Profile failed')
+        return json.user
+      })
+
+    setCurrentUser(profile)
+    setAuthLoading(false)
+    return profile
   }
 
-  const resetPassword = (email) => {
-    return sendPasswordResetEmail(auth, email)
+  const logout = async () => {
+    await fetch('http://localhost:3000/api/auth/logout', {
+      method: 'POST',
+      credentials: 'include',
+    })
+    setCurrentUser(null)
   }
 
-  // Listen for auth state changes
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, user => {
-      setCurrentUser(user);
-      setLoading(false);
-    });
-    return unsubscribe;
-  }, []);
+    fetchProfile()
+  }, [])
 
-  // Context value
   const value = {
     currentUser,
-    signup,
     login,
+    register,
     logout,
-    resetPassword
-  };
+  }
 
   return (
     <AuthContext.Provider value={value}>
-      {children}
+      {!loading && children}
     </AuthContext.Provider>
-  );
+  )
 }
