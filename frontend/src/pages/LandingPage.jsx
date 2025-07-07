@@ -31,6 +31,8 @@ import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
 import ServiceQuestionsModal from '../components/ServiceQuestionsModal'
 
+const API_BASE_URL =   'http://192.168.1.69:3000'
+
 export default function LandingPage() {
   const [serviceQuery, setServiceQuery] = useState('')
   const [postalCode, setPostalCode] = useState('')
@@ -46,9 +48,14 @@ export default function LandingPage() {
     }
     const q = serviceQuery.trim().toLowerCase()
     const timer = setTimeout(() => {
-      fetch(`http://localhost:3000/api/services?search=${encodeURIComponent(q)}`)
-        .then(res => res.json())
+      console.log('Fetching from:', `${API_BASE_URL}/api/services?search=${encodeURIComponent(q)}`)
+      fetch(`${API_BASE_URL}/api/services?search=${encodeURIComponent(q)}`)
+        .then(res => {
+          console.log('Response status:', res.status)
+          return res.json()
+        })
         .then(data => {
+          console.log('Response data:', data)
           const raw = data.services || []
           const sorted = raw
             .map(s => ({ s, idx: s.toLowerCase().indexOf(q) }))
@@ -60,7 +67,9 @@ export default function LandingPage() {
             .map(o => o.s)
           setSuggestions(sorted)
         })
-        .catch(console.error)
+        .catch(err => {
+          console.error('Fetch error:', err)
+        })
     }, 300)
     return () => clearTimeout(timer)
   }, [serviceQuery])
@@ -111,19 +120,6 @@ export default function LandingPage() {
 
               {showSuggestions && suggestions.length > 0 && (
                 <div className="absolute left-0 right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg overflow-hidden z-50">
-                  {/* Recommended */}
-                  {recommended && (
-                    <button
-                      type="button"
-                      className="w-full text-left px-4 py-2 bg-blue-50 text-blue-600 font-medium hover:bg-blue-100"
-                      onMouseDown={() => {
-                        setServiceQuery(recommended)
-                        setShowSuggestions(false)
-                      }}
-                    >
-                      Recommended: {recommended}
-                    </button>
-                  )}
                   {/* All other suggestions */}
                   <ul className="max-h-60 overflow-auto">
                     {suggestions.map((s, i) => (

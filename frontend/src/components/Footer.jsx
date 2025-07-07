@@ -42,26 +42,26 @@ export default function Footer() {
           </div>
 
           {/* Contact & Social */}
-          <div className="flex flex-col items-start sm:items-end">
+          <div className="flex flex-col items-start lg:items-end">
             <p className="mb-2 font-medium text-gray-900">Need help?</p>
             <a
               href="https://help.bark.com/hc/en-gb/articles/17639389954076"
-              className="mb-4 px-4 py-2 bg-blue-600  text-white font-semibold shadow rounded hover:bg-blue-700 transition font-color: white"
+              className="mb-4 inline-block px-4 py-2 bg-blue-600 text-white font-semibold rounded shadow hover:bg-blue-700 transition-colors duration-200 no-underline"
+              style={{ color: 'white' }}
             >
               Contact us
             </a>
-            <div className="flex space-x-4 mb-4">
-              <a href="https://twitter.com/barkteam?lang=en" target="_blank" rel="noopener noreferrer">
+            <div className="flex space-x-4">
+              <a href="https://twitter.com/barkteam?lang=en" target="_blank" rel="noopener noreferrer" className="hover:opacity-75 transition-opacity">
                 <img src="https://d18jakcjgoan9.cloudfront.net/s/img/images/material-icons/icon-twitter.png!d=2M4f26" alt="Twitter" width="24" height="24" />
               </a>
-              <a href="https://www.facebook.com/barkteam/" target="_blank" rel="noopener noreferrer">
+              <a href="https://www.facebook.com/barkteam/" target="_blank" rel="noopener noreferrer" className="hover:opacity-75 transition-opacity">
                 <img src="https://d18jakcjgoan9.cloudfront.net/s/img/images/material-icons/icon-facebook.png!d=2M4f26" alt="Facebook" width="24" height="24" />
               </a>
-              <a href="https://www.linkedin.com/company/bark-com/about/" target="_blank" rel="noopener noreferrer">
+              <a href="https://www.linkedin.com/company/bark-com/about/" target="_blank" rel="noopener noreferrer" className="hover:opacity-75 transition-opacity">
                 <img src="https://d18jakcjgoan9.cloudfront.net/s/img/images/material-icons/icon-linkedin.png!d=2M4f26" alt="LinkedIn" width="24" height="24" />
               </a>
             </div>
-           
           </div>
         </div>
 
@@ -71,13 +71,11 @@ export default function Footer() {
         {/* Bottom row */}
         <div className="flex flex-col lg:flex-row justify-between items-center text-sm space-y-4 lg:space-y-0">
           <div className="text-gray-500 text-center lg:text-left">
-            <div>
-            © 2025 voloLocals
-            </div>
-            <a href="/en/gb/terms/" className="ml-1 hover:text-gray-700"> 
-            Terms &amp; Conditions</a> |
-            <a href="/en/gb/privacy/" className="hover:text-gray-700"> Privacy policy</a>
-
+            <span>© 2025 voloLocals</span>
+            <span className="mx-2">|</span>
+            <a href="/en/gb/terms/" className="hover:text-gray-700 underline">Terms &amp; Conditions</a>
+            <span className="mx-2">|</span>
+            <a href="/en/gb/privacy/" className="hover:text-gray-700 underline">Privacy Policy</a>
           </div>
         </div>
       </div>

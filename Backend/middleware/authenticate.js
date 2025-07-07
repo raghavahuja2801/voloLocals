@@ -1,10 +1,11 @@
 const { auth } = require('../config/firebaseAdmin');
 
 async function authenticate(req, res, next) {
-  const sessionCookie = req.cookies.session || '';
+  // Check for both session types
+  const sessionCookie = req.cookies.session || req.cookies.contractorSession || '';
   if (!sessionCookie) {
     console.warn('No session cookie found');
-    return res.status(401).json({ error: 'Not authenticated' });
+    return res.status(401).json({ error: 'Not authenticated cause no cookie' });
   }
 
   try {
@@ -18,7 +19,9 @@ async function authenticate(req, res, next) {
     next();
   } catch (e) {
     console.error('Invalid session cookie', e);
+    // Clear both possible cookies
     res.clearCookie('session');
+    res.clearCookie('contractorSession');
     res.status(401).json({ error: 'Session expired' });
   }
 }

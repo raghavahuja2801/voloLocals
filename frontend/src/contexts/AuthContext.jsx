@@ -1,12 +1,14 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
+
 
 const AuthContext = createContext()
-
 export function useAuth() {
   return useContext(AuthContext)
 }
 
 export function AuthProvider({ children }) {
+  
   const [currentUser, setCurrentUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [authLoading, setAuthLoading] = useState(false)
@@ -16,7 +18,8 @@ export function AuthProvider({ children }) {
   // Fetch user profile from backend using stored cookie
   const fetchProfile = async () => {
     try {
-      const res = await fetch('http://localhost:3000/api/auth/profile', {
+      console.log('Fetching profile from:', `${API_BASE_URL}/api/auth/profile`)
+      const res = await fetch(`${API_BASE_URL}/api/auth/profile`, {
         credentials: 'include',
       })
       if (res.ok) {
@@ -33,7 +36,7 @@ export function AuthProvider({ children }) {
   }
 
   const login = async (email, password) => {
-    const res = await fetch('http://localhost:3000/api/auth/login', {
+    const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -48,46 +51,62 @@ export function AuthProvider({ children }) {
 
 
 
-  async function register(email, password, displayName, role) {
+  async function register(email, password, displayName, phone, role) {
     setAuthLoading(true)
     // 1) register
-    const res = await fetch('http://localhost:3000/api/auth/register', {
+    const res = await fetch(`${API_BASE_URL}/api/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, displayName, role }),
+      body: JSON.stringify({ email, password, displayName, phone, role }),
     })
     if (!res.ok) {
       const err = await res.text()
       throw new Error(err || 'Registration failed')
     }
 
-    // 2) login (so cookie is set)
-    await fetch('http://localhost:3000/api/auth/login', {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    }).then(r => {
-      if (!r.ok) throw new Error('Login failed')
-    })
-
-    // 3) re–fetch profile
-    const profile = await fetch('http://localhost:3000/api/auth/profile', {
-      credentials: 'include',
-    })
-      .then(r => r.json())
-      .then(json => {
-        if (!json.success) throw new Error('Profile failed')
-        return json.user
-      })
-
-    setCurrentUser(profile)
+   login(email, password)
     setAuthLoading(false)
-    return profile
+  }
+
+  async function registerProfessional({
+    email,
+    password,
+    displayName,
+    phone,
+    businessName,
+    serviceCategories,
+    serviceAreas,
+    licenseNumber,
+    availability
+  }) {
+    setAuthLoading(true)
+    // 1) register
+    const res = await fetch(`${API_BASE_URL}/api/contractor/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email,
+        password,
+        displayName,
+        phone,
+        businessName,
+        serviceCategories,
+        serviceAreas,
+        licenseNumber,
+        availability,
+      }),
+    })
+    if (!res.ok) {
+      const err = await res.text()
+      throw new Error(err || 'Registration failed')
+    }
+
+   login(email, password)
+    setAuthLoading(false)
   }
 
   const logout = async () => {
-    await fetch('http://localhost:3000/api/auth/logout', {
+    await fetch(`${API_BASE_URL}/api/auth/logout`, {
       method: 'POST',
       credentials: 'include',
     })
@@ -100,9 +119,11 @@ export function AuthProvider({ children }) {
 
   const value = {
     currentUser,
+    loading,
     login,
     register,
     logout,
+    registerProfessional,
   }
 
   return (

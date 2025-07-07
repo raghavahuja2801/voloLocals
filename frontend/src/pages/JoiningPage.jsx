@@ -6,13 +6,17 @@ import Footer from '../components/Footer'
 import { useAuth } from '../contexts/AuthContext'
 
 export default function JoiningPage() {
-  const { register } = useAuth()
+  const { registerProfessional } = useAuth()
   const navigate = useNavigate()
   const [displayName, setDisplayName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [company, setCompany] = useState('')
   const [phone, setPhone] = useState('')
+  const [businessName, setBusinessName] = useState('')
+  const [serviceCategories, setServiceCategories] = useState([])
+  const [serviceAreas, setServiceAreas] = useState([])
+  const [licenseNumber, setLicenseNumber] = useState('')
+  const [availability, setAvailability] = useState({ days: [], hours: '' })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
@@ -21,14 +25,18 @@ export default function JoiningPage() {
     setLoading(true)
     setError(null)
     try {
-      await register({
+      await registerProfessional({
         email,
         password,
         displayName,
-        role: 'contractor',
-        // optionally other metadata
+        phone,
+        businessName,
+        serviceCategories,
+        serviceAreas,
+        licenseNumber,
+        availability,
       })
-      navigate('/requests')
+      navigate('/') // Redirect to smart landing which will route to dashboard for contractors
     } catch (err) {
       console.error(err)
       setError(err.message || 'Registration failed')
@@ -90,21 +98,22 @@ export default function JoiningPage() {
               />
             </div>
 
-            {/* Company */}
+            {/* Business Name */}
             <div className="relative">
               <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">
                 <Briefcase className="w-5 h-5" />
               </span>
               <input
                 type="text"
-                placeholder="Company Name"
-                value={company}
-                onChange={(e) => setCompany(e.target.value)}
+                placeholder="Business Name"
+                value={businessName}
+                onChange={(e) => setBusinessName(e.target.value)}
+                required
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
               />
             </div>
 
-            {/* Phone */}
+            {/* Phone Number */}
             <div className="relative">
               <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">
                 <Phone className="w-5 h-5" />
@@ -114,9 +123,80 @@ export default function JoiningPage() {
                 placeholder="Phone Number"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
+                required
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
               />
             </div>
+
+            {/* Service Categories */}
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Service Categories (e.g., plumbing, electrical, cleaning)"
+                value={serviceCategories.join(', ')}
+                onChange={(e) => setServiceCategories(e.target.value.split(', ').filter(cat => cat.trim()))}
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+              />
+            </div>
+
+            {/* Service Areas */}
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Service Areas (e.g., Downtown, Suburbs, City Center)"
+                value={serviceAreas.join(', ')}
+                onChange={(e) => setServiceAreas(e.target.value.split(', ').filter(area => area.trim()))}
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+              />
+            </div>
+
+            {/* License Number */}
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="License Number (optional)"
+                value={licenseNumber}
+                onChange={(e) => setLicenseNumber(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+              />
+            </div>
+
+            {/* Availability Days */}
+            <div className="relative">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Available Days</label>
+              <div className="grid grid-cols-2 gap-2">
+                {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => (
+                  <label key={day} className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={availability.days.includes(day)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setAvailability(prev => ({ ...prev, days: [...prev.days, day] }))
+                        } else {
+                          setAvailability(prev => ({ ...prev, days: prev.days.filter(d => d !== day) }))
+                        }
+                      }}
+                      className="mr-2"
+                    />
+                    <span className="text-sm">{day}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Availability Hours */}
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Available Hours (e.g., 9AM-5PM)"
+                value={availability.hours}
+                onChange={(e) => setAvailability(prev => ({ ...prev, hours: e.target.value }))}
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+              />
+            </div>
+
+          
 
             <button
               type="submit"

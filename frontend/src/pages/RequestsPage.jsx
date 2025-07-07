@@ -5,6 +5,8 @@ import Footer from '../components/Footer'
 import Spinner from '../components/Spinner'
 import { useAuth } from '../contexts/AuthContext'
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
+
 export default function RequestsPage() {
   const { currentUser } = useAuth()
   const navigate = useNavigate()
@@ -28,7 +30,7 @@ export default function RequestsPage() {
     hasFetched.current = true
 
     setLoading(true)
-    fetch('http://localhost:3000/api/leads', { credentials: 'include' })
+    fetch(`${API_BASE_URL}/api/leads`, { credentials: 'include' })
       .then(res => {
         if (!res.ok) throw new Error(res.statusText)
         return res.json()

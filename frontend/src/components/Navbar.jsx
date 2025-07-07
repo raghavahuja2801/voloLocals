@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { Menu, X, ChevronDown, ChevronRight, User, LogOut } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 
 export default function Navbar() {
@@ -8,10 +9,14 @@ export default function Navbar() {
   const { currentUser, logout } = useAuth()
 
   const isLoggedIn = Boolean(currentUser)
+  const isContractor = currentUser?.role === 'contractor'
 
   const authLinks = isLoggedIn
     ? [
-        { label: 'My Requests', href: '/requests' },
+        { 
+          label: isContractor ? 'My Leads' : 'My Requests', 
+          href: isContractor ? '/dashboard' : '/requests' 
+        },
         { label: 'Account', href: '/account' }
       ]
     : [
@@ -61,9 +66,9 @@ export default function Navbar() {
       <div className="container mx-auto flex items-center justify-between px-4 py-3">
         {/* Logo + Explore */}
         <div className="flex items-center space-x-8">
-          <a href="/" className="flex items-center">
+          <Link to="/" className="flex items-center">
             <img src="/image.png" alt="Logo" className="h-14 w-auto" />
-          </a>
+          </Link>
           <div className="hidden md:block relative">
             <button
               onClick={() => setExploreOpen(o => !o)}
@@ -116,13 +121,13 @@ export default function Navbar() {
         <div className="flex items-center space-x-6">
           <div className="hidden md:flex items-center space-x-4">
             {authLinks.map(link => (
-              <a
+              <Link
                 key={link.label}
-                href={link.href}
+                to={link.href}
                 className="text-gray-800 hover:text-gray-900 font-medium"
               >
                 {link.label}
-              </a>
+              </Link>
             ))}
             {isLoggedIn && (
               <button
@@ -198,13 +203,13 @@ export default function Navbar() {
           </div>
           <div className="p-4 space-y-2 text-center">
             {authLinks.map(link => (
-              <a
+              <Link
                 key={link.label}
-                href={link.href}
+                to={link.href}
                 className="block text-gray-800 hover:text-gray-900 font-medium"
               >
                 {link.label}
-              </a>
+              </Link>
             ))}
             {isLoggedIn && (
               <button

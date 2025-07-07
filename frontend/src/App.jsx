@@ -6,6 +6,10 @@ import LoginPage from './pages/LoginPage'
 import AccountPage from './pages/AccountPage'
 import ForgotPasswordPage from './pages/ForgotPassword'
 import JoiningPage from './pages/JoiningPage'
+import ContractorDashboard from './pages/ContractorDashboard'
+import ProtectedRoute from './components/ProtectedRoute'
+import ContractorRoute from './components/ContractorRoute'
+import SmartLanding from './components/SmartLanding'
 
 function App() {
 
@@ -13,12 +17,37 @@ function App() {
   return (
    <BrowserRouter>
       <Routes>
-        <Route path="/" element={<LandingPage />} />
+        <Route path="/" element={<SmartLanding />} />
+        <Route path="/landing" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        <Route path="/requests" element={<RequestsPage />} />
-        <Route path="/account" element={<AccountPage />} />
-        <Route path='/join' element={<JoiningPage />} />
+        <Route path="/join" element={<JoiningPage />} />
+        
+        {/* Protected Routes */}
+        <Route 
+          path="/requests" 
+          element={
+            <ProtectedRoute requireRole="user">
+              <RequestsPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/account" 
+          element={
+            <ProtectedRoute>
+              <AccountPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/dashboard" 
+          element={
+            <ContractorRoute>
+              <ContractorDashboard />
+            </ContractorRoute>
+          } 
+        />
         {/* add more routes here */}
       </Routes>
     </BrowserRouter>

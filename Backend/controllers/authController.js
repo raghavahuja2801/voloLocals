@@ -11,10 +11,10 @@ const {
 
 exports.register = async (req, res, next) => {
   try {
-    const { email, password, displayName, role } = req.body;
-    if (!email || !password || !displayName || !role) {
+    const { email, password, displayName, phone, role } = req.body;
+    if (!email || !password || !displayName || !phone || !role) {
       res.status(400);
-      throw new Error('email, password, displayName and role are required');
+      throw new Error('email, password, displayName, phone and role are required');
     }
     if (!ALLOWED_ROLES.includes(role)) {
       res.status(400);
@@ -31,20 +31,22 @@ exports.register = async (req, res, next) => {
     // 2) Set custom claim
     await setRoleClaim(userRecord.uid, role);
 
-    // 3) Firestore profile write
+    // 3) Firestore profile write with new schema
     const profile = await createProfile(userRecord.uid, {
       email,
       displayName,
+      phone,
       role
     });
 
     // 4) Issue a custom token for client to sign-in
     const customToken = await auth.createCustomToken(userRecord.uid, { role });
-    res.status(201).json({ success: true,customToken, profile });
+    res.status(201).json({ success: true, customToken, profile });
   } catch (err) {
     next(err);
   }
 };
+
 
 exports.login = async (req, res, next) => {
   try {

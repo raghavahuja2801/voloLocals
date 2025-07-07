@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
+
 export default function ServiceQuestionsModal({
   serviceType,
   postalCode,
@@ -19,6 +21,7 @@ export default function ServiceQuestionsModal({
     email: '',
     password: '',
     displayName: '',
+    phone: '',
     role: 'user',
   })
   const [regError, setRegError] = useState(null)
@@ -28,7 +31,7 @@ export default function ServiceQuestionsModal({
   useEffect(() => {
     setLoading(true)
     fetch(
-      `http://localhost:3000/api/services/${encodeURIComponent(
+      `${API_BASE_URL}/api/services/${encodeURIComponent(
         serviceType
       )}/questions`
     )
@@ -73,7 +76,7 @@ export default function ServiceQuestionsModal({
     if (!currentUser) {
         return payload // return early if no user
     }
-    const resp = await fetch('http://localhost:3000/api/leads', {
+    const resp = await fetch(`${API_BASE_URL}/api/leads`, {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
@@ -106,8 +109,8 @@ export default function ServiceQuestionsModal({
     setSubmitting(true)
     setRegError(null)
     try {
-      // call your authcontext.register
-      await register(regData.email, regData.password, regData.displayName, regData.role)
+      // call your authcontext.register with phone number
+      await register(regData.email, regData.password, regData.displayName, regData.phone, regData.role)
       // now currentUser is set, create the lead
       console.log('User registered and logged in:', currentUser)
       setIsRegisterPhase(false)
@@ -256,6 +259,15 @@ export default function ServiceQuestionsModal({
                 value={regData.email}
                 onChange={e =>
                   setRegData(d => ({ ...d, email: e.target.value }))
+                }
+                className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <input
+                type="tel"
+                placeholder="Phone Number"
+                value={regData.phone}
+                onChange={e =>
+                  setRegData(d => ({ ...d, phone: e.target.value }))
                 }
                 className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />

@@ -7,6 +7,7 @@ const leadRoutes = require('./routes/leads');
 const serviceRoutes = require('./routes/services');
 const adminRoutes = require('./routes/admin');
 const authRoutes = require('./routes/auth');
+const contractorAuthRoutes = require('./routes/contractorAuth');
 const userRoutes = require('./routes/users');
 const errorHandler = require('./middleware/errorHandling');
 
@@ -20,14 +21,15 @@ const PORT       = process.env.PORT || 3000;
 app.use(express.json());
 // Middleware to parse cookies
 app.use(cookieParser());
+
 // Middleware to enable CORS
 app.use(cors({
-  origin: 'http://localhost:5173',  // or wherever your frontend runs
-  credentials: true,                // <— allows cookies to be sent
+  origin: true,
+  credentials: true
 }));
-
 // Auth route 
 app.use('/api/auth', authRoutes);
+app.use('/api/contractor/auth', contractorAuthRoutes);
 
 // Main API routes
 app.use('/api/leads', leadRoutes);

@@ -14,7 +14,7 @@ router.get('/me', authenticate, getProfile);
 
 
 // PATCH /api/users/me
-router.patch('/me', updateProfile);
+router.put('/me', updateProfile);
 
 // DELETE /api/users/me
 router.delete('/me', deleteProfile);

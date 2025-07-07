@@ -8,6 +8,7 @@ const {
   deleteLead,
   getLeadsByUidAdmin,
 } = require('../models/leadModel');
+const { incrementLeadsSubmitted } = require('../models/userModel');
 
 
 // exports.createLead = async (req, res) => {
@@ -31,6 +32,7 @@ exports.generateLead = async (req, res) => {
       ...req.body
         };
     const lead = await createLead(payload);
+    incrementLeadsSubmitted(req.user.uid); // Increment leads submitted count for user
     res.status(201).json({ success: true, lead });
   }
     catch (error) {
