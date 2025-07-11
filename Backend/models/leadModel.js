@@ -53,7 +53,6 @@ async function updateLead(uid, id, updates) {
   return { id: updatedSnap.id, ...updatedSnap.data() };
 }
 
-
 async function deleteLead(uid, id) {
   const docRef = leadsCollection.doc(id);
   const snap = await docRef.get();
@@ -65,10 +64,21 @@ async function deleteLead(uid, id) {
   return true;
 }
 
+async function getLeadsByServiceTypes(serviceTypes) {
+  const snapshot = await leadsCollection
+    .where('serviceType', 'in', serviceTypes)
+    .orderBy('createdAt', 'desc')
+    .get();
+  
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+}
+
 module.exports = {
   createLead,
-    getLeadsByUid,
-    getLeadById,
-    updateLead,
-    deleteLead
+  getLeadsByUid,
+  getLeadsByUidAdmin,
+  getLeadById,
+  updateLead,
+  deleteLead,
+  getLeadsByServiceTypes
 };

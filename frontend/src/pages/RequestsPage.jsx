@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { X, Trash2 } from 'lucide-react'
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
 import Spinner from '../components/Spinner'
 import { useAuth } from '../contexts/AuthContext'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
+const API_BASE_URL = 'http://localhost:3000'
 
 export default function RequestsPage() {
   const { currentUser } = useAuth()
@@ -22,6 +23,7 @@ export default function RequestsPage() {
   const [leads, setLeads] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [deletingLeads, setDeletingLeads] = useState(new Set())
 
   useEffect(() => {
     // 1) Wait for user
@@ -42,6 +44,38 @@ export default function RequestsPage() {
       .catch(err => setError(err.message))
       .finally(() => setLoading(false))
   }, [currentUser])
+
+  // Function to handle lead deletion
+  const handleDeleteLead = async (leadId) => {
+    if (!window.confirm('Are you sure you want to close this request? This action cannot be undone.')) {
+      return
+    }
+
+    setDeletingLeads(prev => new Set([...prev, leadId]))
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/leads/${leadId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to delete lead')
+      }
+      
+      // Remove the lead from the local state
+      setLeads(prev => prev.filter(lead => lead.id !== leadId))
+    } catch (err) {
+      console.error('Error deleting lead:', err)
+      alert('Failed to close the request. Please try again.')
+    } finally {
+      setDeletingLeads(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(leadId)
+        return newSet
+      })
+    }
+  }
 
 
 return (
@@ -84,6 +118,65 @@ return (
               .map(w => w[0].toUpperCase() + w.slice(1))
               .join(' ')
 
+            // Helper function to format field labels
+            const formatLabel = (fieldId) => {
+              return fieldId
+                .split('-')
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                .join(' ')
+            }
+
+            // Helper function to format field values
+            const formatValue = (fieldId, value) => {
+              if (!value) return 'Not specified'
+              
+              if (fieldId === 'budget') {
+                const budgetLabels = {
+                  'under-1000': 'Under $1,000',
+                  '1000-5000': '$1,000 - $5,000',
+                  '5000-10000': '$5,000 - $10,000',
+                  '10000-25000': '$10,000 - $25,000',
+                  'above-25000': 'Above $25,000'
+                }
+                return budgetLabels[value] || value
+              }
+              
+              if (fieldId === 'urgent') {
+                const urgencyLabels = {
+                  'asap': 'ASAP',
+                  'this-week': 'This Week',
+                  'next-week': 'Next Week',
+                  'flexible': 'Flexible'
+                }
+                return urgencyLabels[value] || value
+              }
+              
+              if (fieldId === 'contact-preference') {
+                const contactLabels = {
+                  'phone': 'Phone',
+                  'email': 'Email',
+                  'whatsapp': 'WhatsApp',
+                  'any': 'Any method'
+                }
+                return contactLabels[value] || value
+              }
+              
+              if (fieldId === 'contact-time') {
+                const timeLabels = {
+                  'morning': 'Morning',
+                  'afternoon': 'Afternoon',
+                  'evening': 'Evening',
+                  'anytime': 'Anytime'
+                }
+                return timeLabels[value] || value
+              }
+              
+              return value
+            }
+
+            // Template fields that should be displayed prominently
+            const templateFields = ['budget', 'location', 'pincode', 'urgent', 'contact-preference', 'contact-time']
+            
             return (
               <div
                 key={lead.id}
@@ -102,8 +195,72 @@ return (
                   Requested: <time dateTime={ts.toISOString()}>{createdAt}</time>
                 </p>
 
-                {/* you can add other fields if you like */}
-                {/* <p className="text-gray-800">{lead.company}</p> */}
+                {/* Display key information */}
+                {lead.responses && (
+                  <div className="w-full space-y-2 text-sm mb-4">
+                    {/* Budget */}
+                    {lead.responses.budget && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Budget:</span>
+                        <span className="font-medium">{formatValue('budget', lead.responses.budget)}</span>
+                      </div>
+                    )}
+                    
+                    {/* Location */}
+                    {lead.responses.location && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Location:</span>
+                        <span className="font-medium">{lead.responses.location}</span>
+                      </div>
+                    )}
+                    
+                    {/* Urgency */}
+                    {lead.responses.urgent && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Urgency:</span>
+                        <span className="font-medium">{formatValue('urgent', lead.responses.urgent)}</span>
+                      </div>
+                    )}
+                    
+                    {/* Contact preference */}
+                    {lead.responses['contact-preference'] && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Contact via:</span>
+                        <span className="font-medium">{formatValue('contact-preference', lead.responses['contact-preference'])}</span>
+                      </div>
+                    )}
+                    
+                    {/* Service-specific questions */}
+                    {Object.entries(lead.responses || {})
+                      .filter(([key]) => !templateFields.includes(key))
+                      .map(([questionId, answer]) => (
+                        <div key={questionId} className="flex justify-between">
+                          <span className="text-gray-600">{formatLabel(questionId)}:</span>
+                          <span className="font-medium">{answer || 'Not specified'}</span>
+                        </div>
+                      ))
+                    }
+                  </div>
+                )}
+
+                {/* Close Request Button */}
+                <button
+                  onClick={() => handleDeleteLead(lead.id)}
+                  disabled={deletingLeads.has(lead.id)}
+                  className="w-full mt-auto px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {deletingLeads.has(lead.id) ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Closing...
+                    </>
+                  ) : (
+                    <>
+                      <X className="w-4 h-4" />
+                      Close Request
+                    </>
+                  )}
+                </button>
               </div>
             )
           })}

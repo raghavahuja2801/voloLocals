@@ -7,9 +7,11 @@ import AccountPage from './pages/AccountPage'
 import ForgotPasswordPage from './pages/ForgotPassword'
 import JoiningPage from './pages/JoiningPage'
 import ContractorDashboard from './pages/ContractorDashboard'
+import AdminDashboard from './pages/AdminDashboard'
 import ProtectedRoute from './components/ProtectedRoute'
 import ContractorRoute from './components/ContractorRoute'
 import SmartLanding from './components/SmartLanding'
+import TermsandCondition from './pages/TermsandCondition'
 
 function App() {
 
@@ -22,6 +24,7 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/join" element={<JoiningPage />} />
+        <Route path="/terms" element={<TermsandCondition />} />
         
         {/* Protected Routes */}
         <Route 
@@ -46,6 +49,14 @@ function App() {
             <ContractorRoute>
               <ContractorDashboard />
             </ContractorRoute>
+          } 
+        />
+        <Route 
+          path="/admin" 
+          element={
+            <ProtectedRoute requireRole="admin">
+              <AdminDashboard />
+            </ProtectedRoute>
           } 
         />
         {/* add more routes here */}

@@ -18,10 +18,13 @@ export default function SmartLanding() {
     )
   }
 
-  // Only redirect contractors to dashboard automatically
-  // Regular users can still access the landing page
-  if (currentUser && currentUser.role === 'contractor') {
-    return <Navigate to="/dashboard" replace />
+  // Redirect users based on their role
+  if (currentUser) {
+    if (currentUser.role === 'contractor') {
+      return <Navigate to="/dashboard" replace />
+    } else if (currentUser.role === 'admin') {
+      return <Navigate to="/admin" replace />
+    }
   }
 
   // For everyone else (users and guests), show the landing page

@@ -6,6 +6,14 @@ const {
   setRoleClaim,
   createProfile
 } = require('../models/userModel');
+const {
+  createContractor,
+  getContractorByUid,
+  updateContractor,
+  updateContractorStatus,
+  getContractorsByStatus,
+  migrateContractorsStatus
+} = require('../models/contractorModel');
 
 exports.registerContractor = async (req, res, next) => {    
   try {
@@ -37,8 +45,8 @@ exports.registerContractor = async (req, res, next) => {
     // 2) Set custom claim as contractor
     await setRoleClaim(userRecord.uid, 'contractor');
 
-    // 3) Create contractor profile with new schema
-    const contractorProfile = {
+    // 3) Create contractor profile using contractor model
+    const contractorData = {
       email,
       displayName,
       phone,
@@ -53,7 +61,8 @@ exports.registerContractor = async (req, res, next) => {
       }
     };
 
-    const profile = await createProfile(userRecord.uid, contractorProfile);
+    // Create contractor profile using the model
+    const contractorProfile = await createContractor(userRecord.uid, contractorData);
 
     // 4) Issue a custom token for client to sign-in
     const customToken = await auth.createCustomToken(userRecord.uid, { role: 'contractor' });
@@ -61,8 +70,8 @@ exports.registerContractor = async (req, res, next) => {
     res.status(201).json({ 
       success: true, 
       customToken, 
-      profile,
-      message: 'Contractor registration successful' 
+      profile: contractorProfile,
+      message: 'Contractor registration successful. Your account is pending admin approval.' 
     });
   } catch (err) {
     next(err);
@@ -135,9 +144,8 @@ exports.getContractorProfile = async (req, res, next) => {
     // 1) Fetch the Firebase Auth user
     const userRecord = await auth.getUser(uid);
 
-    // 2) Fetch the contractor profile
-    const snap = await db.collection('contractors').doc(uid).get();
-    const profile = snap.exists ? snap.data() : null;
+    // 2) Fetch the contractor profile using model
+    const profile = await getContractorByUid(uid);
 
     if (!profile) {
       res.status(404);
@@ -204,13 +212,11 @@ exports.updateContractorProfile = async (req, res, next) => {
       throw new Error('No valid fields to update');
     }
 
-    updates.updatedAt = admin.firestore.FieldValue.serverTimestamp();
+    // Add last login timestamp
     updates.lastLogin = admin.firestore.FieldValue.serverTimestamp();
 
-    await db.collection('contractors').doc(uid).update(updates);
-
-    const updatedDoc = await db.collection('contractors').doc(uid).get();
-    const updatedProfile = updatedDoc.data();
+    // Update contractor using model
+    const updatedProfile = await updateContractor(uid, updates);
 
     res.json({
       success: true,
@@ -221,3 +227,83 @@ exports.updateContractorProfile = async (req, res, next) => {
     next(err);
   }
 };
+
+/**
+ * ─── Admin Functions for Contractor Management ────────────────────────────────────
+ */
+
+// Admin endpoint to approve/reject contractors
+exports.updateContractorStatus = async (req, res, next) => {
+  try {
+    const { contractorId } = req.params;
+    const { status } = req.body;
+    
+    // Validate status
+    const validStatuses = ['pending', 'approved', 'rejected', 'suspended'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid status. Must be one of: ${validStatuses.join(', ')}`
+      });
+    }
+    
+    // Update contractor status using model
+    const updatedContractor = await updateContractorStatus(contractorId, status, req.user.uid);
+    
+    res.json({
+      success: true,
+      contractor: updatedContractor,
+      message: `Contractor status updated to ${status}`
+    });
+  } catch (error) {
+    console.error('❌ [CONTRACTOR-STATUS] Error updating contractor status:', error);
+    next(error);
+  }
+};
+
+// Admin endpoint to get contractors by status (for dashboard)
+exports.getContractorsByStatus = async (req, res, next) => {
+  try {
+    const { status } = req.query; // Optional query parameter
+    
+    // Get contractors using model
+    const contractors = await getContractorsByStatus(status);
+    
+    res.json({
+      success: true,
+      contractors,
+      count: contractors.length,
+      status: status || 'all'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Middleware to check if contractor is approved
+exports.checkContractorApproved = async (req, res, next) => {
+  try {
+    // Get contractor using model
+    const contractor = await getContractorByUid(req.user.uid);
+    
+    if (!contractor) {
+      return res.status(404).json({
+        success: false,
+        error: 'Contractor profile not found'
+      });
+    }
+    
+    if (contractor.status !== 'approved') {
+      return res.status(403).json({
+        success: false,
+        error: `Access denied. Your contractor account is ${contractor.status}. Please wait for admin approval.`,
+        status: contractor.status
+      });
+    }
+    
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+

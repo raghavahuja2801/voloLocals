@@ -40,10 +40,12 @@ export default function ServiceQuestionsModal({
         const qs = data.questions || []
         setQuestions(qs)
 
-        // initialize answers for each key
+        // initialize answers for each key - ensure complete isolation
         const init = {}
         qs.forEach(q => {
-          init[q.key] = q.type === 'checkbox' ? [] : ''
+          if (q.key) {
+            init[q.key] = q.type === 'checkbox' ? [] : ''
+          }
         })
         setAnswers(init)
       })
@@ -54,24 +56,28 @@ export default function ServiceQuestionsModal({
 
   function handleAnswerChange(key, value, type) {
     setAnswers(prev => {
+      // Create a completely new object to avoid any reference issues
+      const newAnswers = { ...prev }
+      
       if (type === 'checkbox') {
-        const arr = prev[key] || []
-        return {
-          ...prev,
-          [key]: arr.includes(value)
-            ? arr.filter(x => x !== value)
-            : [...arr, value],
+        const currentArray = Array.isArray(newAnswers[key]) ? [...newAnswers[key]] : []
+        if (currentArray.includes(value)) {
+          newAnswers[key] = currentArray.filter(x => x !== value)
+        } else {
+          newAnswers[key] = [...currentArray, value]
         }
+      } else {
+        newAnswers[key] = value
       }
-      return { ...prev, [key]: value }
+      
+      return newAnswers
     })
   }
 
   async function createLead() {
     const payload = {
       serviceType,
-      postalCode,
-      answers,
+      responses: answers, // Changed from 'answers' to 'responses' to match your middleware
     }
     if (!currentUser) {
         return payload // return early if no user
@@ -143,84 +149,81 @@ export default function ServiceQuestionsModal({
               </div>
             ) : (
               <form className="space-y-6">
-                {questions.map((q, i) => (
-                  <div key={i}>
-                    <label className="block font-medium mb-1">{q.label}</label>
+                {questions.map((question, index) => {
+                  const fieldKey = question.key || question.id || `field_${index}`
+                  
+                  return (
+                    <div key={fieldKey} className="space-y-2">
+                      <label htmlFor={fieldKey} className="block font-medium text-gray-700">
+                        {question.label}
+                      </label>
 
-                    {q.type === 'text' && (
-                      <input
-                        type="text"
-                        className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        value={answers[q.key]}
-                        onChange={e =>
-                          handleAnswerChange(q.key, e.target.value, q.type)
-                        }
-                      />
-                    )}
+                      {question.type === 'text' && (
+                        <input
+                          id={fieldKey}
+                          name={fieldKey}
+                          type="text"
+                          className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          value={answers[fieldKey] || ''}
+                          onChange={(e) => handleAnswerChange(fieldKey, e.target.value, 'text')}
+                        />
+                      )}
 
-                    {q.type === 'select' && (
-                      <select
-                        className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        value={answers[q.key]}
-                        onChange={e =>
-                          handleAnswerChange(q.key, e.target.value, q.type)
-                        }
-                      >
-                        <option value="">Choose…</option>
-                        {q.options.map(o => (
-                          <option key={o.value} value={o.value}>
-                            {o.label}
-                          </option>
-                        ))}
-                      </select>
-                    )}
+                      {question.type === 'select' && (
+                        <select
+                          id={fieldKey}
+                          name={fieldKey}
+                          className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          value={answers[fieldKey] || ''}
+                          onChange={(e) => handleAnswerChange(fieldKey, e.target.value, 'select')}
+                        >
+                          <option value="">Choose…</option>
+                          {question.options?.map((option, optIndex) => (
+                            <option key={`${fieldKey}_opt_${optIndex}`} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      )}
 
-                    {q.type === 'radio' && (
-                      <div className="space-x-4">
-                        {q.options.map(o => (
-                          <label
-                            key={o.value}
-                            className="inline-flex items-center"
-                          >
-                            <input
-                              type="radio"
-                              name={q.key}
-                              value={o.value}
-                              checked={answers[q.key] === o.value}
-                              onChange={() =>
-                                handleAnswerChange(q.key, o.value, q.type)
-                              }
-                              className="form-radio text-blue-600"
-                            />
-                            <span className="ml-2">{o.label}</span>
-                          </label>
-                        ))}
-                      </div>
-                    )}
+                      {question.type === 'radio' && (
+                        <div className="space-y-2">
+                          {question.options?.map((option, optIndex) => (
+                            <label key={`${fieldKey}_radio_${optIndex}`} className="flex items-center">
+                              <input
+                                type="radio"
+                                name={fieldKey}
+                                value={option.value}
+                                checked={answers[fieldKey] === option.value}
+                                onChange={() => handleAnswerChange(fieldKey, option.value, 'radio')}
+                                className="mr-2"
+                              />
+                              <span>{option.label}</span>
+                            </label>
+                          ))}
+                        </div>
+                      )}
 
-                    {q.type === 'checkbox' && (
-                      <div className="space-x-4">
-                        {q.options.map(o => (
-                          <label
-                            key={o.value}
-                            className="inline-flex items-center"
-                          >
-                            <input
-                              type="checkbox"
-                              value={o.value}
-                              checked={(answers[q.key] || []).includes(o.value)}
-                              onChange={() =>
-                                handleAnswerChange(q.key, o.value, q.type)
-                              }
-                              className="form-checkbox text-blue-600"
-                            />
-                            <span className="ml-2">{o.label}</span>
-                          </label>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
+                      {question.type === 'checkbox' && (
+                        <div className="space-y-2">
+                          {question.options?.map((option, optIndex) => (
+                            <label key={`${fieldKey}_checkbox_${optIndex}`} className="flex items-center">
+                              <input
+                                type="checkbox"
+                                name={`${fieldKey}[]`}
+                                value={option.value}
+                                checked={(answers[fieldKey] || []).includes(option.value)}
+                                onChange={() => handleAnswerChange(fieldKey, option.value, 'checkbox')}
+                                className="mr-2"
+                              />
+                              <span>{option.label}</span>
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
 
                 <div className="pt-4 border-t">
                   <button
