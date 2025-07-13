@@ -93,7 +93,7 @@ export default function LandingPage() {
       <main className="flex-grow w-full py-20 px-4">
         <div className="max-w-3xl mx-auto text-center">
           <h1 className="text-4xl md:text-5xl font-bold text-gray-900">
-            Find the perfect professional for you
+            Find the perfect professional rand for you
           </h1>
           <p className="mt-3 text-lg text-gray-600">
             Get free quotes within minutes
