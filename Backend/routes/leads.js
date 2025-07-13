@@ -11,7 +11,11 @@ const {
   deleteLead,
   getFilteredLeads,
   getLeadAnalytics,
-  getLeadsByServiceTypes
+  getLeadsByServiceTypes,
+  setLeadPrice,
+  purchaseLeadByContractor,
+  purchaseLeadWithCredits,
+  checkLeadPurchase
 } = require('../controllers/leadController');
 const authenticate = require('../middleware/authenticate');
 const authorizeRoles = require('../middleware/authorize');
@@ -58,5 +62,33 @@ router.patch('/:id', authorizeRoles('user'), validate, updateLead);
 
 // DELETE
 router.delete('/:id', authorizeRoles('user', 'admin'), deleteLead);
+
+/**
+ * ─── Lead Pricing & Purchase Routes ────────────────────────────────────────────
+ */
+
+// PATCH /api/leads/:leadId/price → Set price for a lead (Admin only)
+router.patch('/:leadId/price', authenticateRoles('admin'), setLeadPrice);
+
+// POST /api/leads/:leadId/purchase → Purchase a lead (Approved Contractor only)
+router.post('/:leadId/purchase', 
+  authenticateRoles('contractor'), 
+  checkContractorApproved,
+  purchaseLeadByContractor
+);
+
+// POST /api/leads/:leadId/purchase-with-credits → Purchase a lead with credits (Approved Contractor only)
+router.post('/:leadId/purchase-with-credits', 
+  authenticateRoles('contractor'), 
+  checkContractorApproved,
+  purchaseLeadWithCredits
+);
+
+// GET /api/leads/:leadId/purchase-status → Check if contractor has purchased lead
+router.get('/:leadId/purchase-status', 
+  authenticateRoles('contractor'), 
+  checkContractorApproved,
+  checkLeadPurchase
+);
 
 module.exports = router;

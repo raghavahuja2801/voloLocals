@@ -33,6 +33,8 @@ A Node.js/Express backend service for connecting local service providers with cu
 - Status-based access control (Pending, Approved, Rejected, Suspended)
 - Service category and area management
 - Profile and availability management
+- **Credit-based lead purchasing system**
+- **Credit balance management**
 
 ### 📋 Service Management
 - Dynamic service type creation
@@ -44,6 +46,8 @@ A Node.js/Express backend service for connecting local service providers with cu
 - Lead filtering and analytics
 - Multi-role lead access (Users, Contractors, Admins)
 - Service-based lead matching
+- **Lead pricing and purchase system**
+- **Purchase tracking and analytics**
 
 ### 🔐 Security & Authentication
 - Firebase Authentication
@@ -69,8 +73,10 @@ A Node.js/Express backend service for connecting local service providers with cu
 | GET | `/profile` | Get contractor profile | Contractor |
 | PUT | `/profile` | Update contractor profile | Contractor |
 | POST | `/logout` | Contractor logout | Contractor |
+| GET | `/credits` | Get contractor credits balance | Contractor |
 | GET | `/admin/contractors` | List all contractors | Admin |
 | PATCH | `/admin/contractors/:id/status` | Update contractor status | Admin |
+| POST | `/admin/contractors/:id/credits` | Add credits to contractor | Admin |
 
 ### 🛠️ Services (`/api/services`)
 | Method | Endpoint | Description | Access |
@@ -93,6 +99,10 @@ A Node.js/Express backend service for connecting local service providers with cu
 | GET | `/:id` | Get specific lead | Authenticated |
 | PATCH | `/:id` | Update lead | User |
 | DELETE | `/:id` | Delete lead | User, Admin |
+| PATCH | `/:leadId/price` | Set lead price | Admin |
+| POST | `/:leadId/purchase` | Purchase a lead | Approved Contractor |
+| POST | `/:leadId/purchase-with-credits` | Purchase lead with credits | Approved Contractor |
+| GET | `/:leadId/purchase-status` | Check lead purchase status | Approved Contractor |
 
 ### 👤 Users (`/api/users`)
 | Method | Endpoint | Description | Access |
@@ -124,6 +134,7 @@ A Node.js/Express backend service for connecting local service providers with cu
 │   ├── email, displayName, phone, businessName
 │   ├── serviceCategories[], serviceAreas[]
 │   ├── licenseNumber, availability
+│   ├── credits (default: 0)
 │   ├── status: "pending" | "approved" | "rejected" | "suspended"
 │   ├── approvedAt, approvedBy
 │   └── timestamps
@@ -140,6 +151,9 @@ A Node.js/Express backend service for connecting local service providers with cu
     ├── responses{} (user answers)
     ├── templateData{} (budget, location, etc.)
     ├── status, priority
+    ├── price (default: 0)
+    ├── purchaseCount (default: 0)
+    ├── purchasedBy[] (contractor UIDs)
     └── timestamps
 ```
 
@@ -277,6 +291,27 @@ curl -X POST http://localhost:3000/api/auth/register \
 curl -X POST http://localhost:3000/api/contractor/auth/register \
   -H "Content-Type: application/json" \
   -d '{"email":"contractor@example.com","password":"password123","displayName":"Test Contractor","phone":"1234567890","businessName":"Test Business"}'
+
+# Test setting lead price (Admin only)
+curl -X PATCH http://localhost:3000/api/leads/LEAD_ID/price \
+  -H "Content-Type: application/json" \
+  -H "Cookie: session=ADMIN_SESSION_COOKIE" \
+  -d '{"price": 25.00}'
+
+# Test purchasing lead with credits (Contractor only)
+curl -X POST http://localhost:3000/api/leads/LEAD_ID/purchase-with-credits \
+  -H "Content-Type: application/json" \
+  -H "Cookie: contractorSession=CONTRACTOR_SESSION_COOKIE"
+
+# Test adding credits to contractor (Admin only)
+curl -X POST http://localhost:3000/api/contractor/auth/admin/contractors/CONTRACTOR_ID/credits \
+  -H "Content-Type: application/json" \
+  -H "Cookie: session=ADMIN_SESSION_COOKIE" \
+  -d '{"amount": 100}'
+
+# Test getting contractor credits balance
+curl -X GET http://localhost:3000/api/contractor/auth/credits \
+  -H "Cookie: contractorSession=CONTRACTOR_SESSION_COOKIE"
 ```
 
 ## 📈 Monitoring & Logging

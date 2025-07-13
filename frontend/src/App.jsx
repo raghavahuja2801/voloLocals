@@ -7,6 +7,7 @@ import AccountPage from './pages/AccountPage'
 import ForgotPasswordPage from './pages/ForgotPassword'
 import JoiningPage from './pages/JoiningPage'
 import ContractorDashboard from './pages/ContractorDashboard'
+import MyLeads from './pages/MyLeads'
 import AdminDashboard from './pages/AdminDashboard'
 import ProtectedRoute from './components/ProtectedRoute'
 import ContractorRoute from './components/ContractorRoute'
@@ -48,6 +49,22 @@ function App() {
           element={
             <ContractorRoute>
               <ContractorDashboard />
+            </ContractorRoute>
+          } 
+        />
+        <Route 
+          path="/contractor-dashboard" 
+          element={
+            <ContractorRoute>
+              <ContractorDashboard />
+            </ContractorRoute>
+          } 
+        />
+        <Route 
+          path="/my-leads" 
+          element={
+            <ContractorRoute>
+              <MyLeads />
             </ContractorRoute>
           } 
         />

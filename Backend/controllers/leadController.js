@@ -8,6 +8,10 @@ const {
   deleteLead,
   getLeadsByUidAdmin,
   getLeadsByServiceTypes,
+  setLeadPrice,
+  purchaseLead,
+  purchaseLeadWithCredits,
+  hasContractorPurchasedLead
 } = require('../models/leadModel');
 const { incrementLeadsSubmitted } = require('../models/userModel');
 
@@ -229,26 +233,37 @@ exports.getLeadAnalytics = async (req, res, next) => {
 // Function to get leads by service types for contractors
 exports.getLeadsByServiceTypes = async (req, res, next) => {
   try {
-    console.log('🔍 [CONTRACTOR] Getting leads by service types...');
-    console.log('📥 [CONTRACTOR] Request body:', JSON.stringify(req.body, null, 2));
     
     const { serviceTypes } = req.body;
+    const userRole = req.user.role;
+    const contractorUid = req.user.uid;
     
     // Validation
     if (!Array.isArray(serviceTypes) || serviceTypes.length === 0) {
-      console.log('❌ [CONTRACTOR] Invalid serviceTypes array');
       return res.status(400).json({
         success: false,
         error: 'serviceTypes array is required and cannot be empty'
       });
     }
     
-    console.log('🔍 [CONTRACTOR] Fetching leads for service types:', serviceTypes);
     const leads = await getLeadsByServiceTypes(serviceTypes);
-    console.log('✅ [CONTRACTOR] Found leads:', leads.length);
+    
+    // If user is a contractor, filter out leads they've already purchased
+    let filteredLeads = leads;
+    if (userRole === 'contractor') {
+      const { getContractorPurchasedLeads } = require('../models/contractorModel');
+      try {
+        const purchasedLeadIds = await getContractorPurchasedLeads(contractorUid);
+        // Filter out leads that the contractor has already purchased
+        filteredLeads = leads.filter(lead => !purchasedLeadIds.includes(lead.id));
+      } catch (error) {
+        console.warn('Could not fetch contractor purchased leads:', error);
+        // Continue with all leads if we can't fetch purchased leads
+      }
+    }
     
     // Filter out sensitive user data for contractors
-    const contractorLeads = leads.map(lead => ({
+    const contractorLeads = filteredLeads.map(lead => ({
       id: lead.id,
       serviceType: lead.serviceType,
       budget: lead.budget,
@@ -257,20 +272,151 @@ exports.getLeadsByServiceTypes = async (req, res, next) => {
       status: lead.status,
       priority: lead.priority,
       createdAt: lead.createdAt,
-      responses: lead.responses // Service-specific, non-personal responses
+      responses: lead.responses, // Service-specific, non-personal responses
       // Explicitly exclude: uid, contactPreference, contactTime, full address details
+      price: lead.price, // Include price if needed
+      purchaseCount: lead.purchaseCount, // Show how many contractors have purchased this lead
+      // Don't show purchasedBy array to maintain contractor privacy
     }));
-    
-    console.log('✅ [CONTRACTOR] Filtered contractor leads:', contractorLeads.length);
+  
     
     res.json({
       success: true,
       leads: contractorLeads,
       count: contractorLeads.length,
-      serviceTypes: serviceTypes
+      serviceTypes: serviceTypes,
+      excludedPurchased: userRole === 'contractor' ? true : false,
+      message: userRole === 'contractor' ? 
+        `Found ${contractorLeads.length} available leads (excluding already purchased)` :
+        `Found ${contractorLeads.length} leads`
     });
   } catch (error) {
     console.error('💥 [CONTRACTOR] Error getting leads by service types:', error);
+    next(error);
+  }
+};
+
+/**
+ * Set price for a lead (Admin only)
+ */
+exports.setLeadPrice = async (req, res, next) => {
+  try {
+    const { leadId } = req.params;
+    const { price } = req.body;
+
+    // Validate price
+    if (typeof price !== 'number' || price < 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Price must be a non-negative number'
+      });
+    }
+
+    const updatedLead = await setLeadPrice(leadId, price);
+
+    res.json({
+      success: true,
+      lead: updatedLead,
+      message: `Lead price set to $${price}`
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Purchase a lead (Contractor only)
+ */
+exports.purchaseLeadByContractor = async (req, res, next) => {
+  try {
+    const { leadId } = req.params;
+    const contractorUid = req.user.uid;
+
+    const updatedLead = await purchaseLead(leadId, contractorUid);
+
+    res.json({
+      success: true,
+      lead: updatedLead,
+      message: 'Lead purchased successfully'
+    });
+  } catch (error) {
+    if (error.message === 'Lead not found') {
+      return res.status(404).json({
+        success: false,
+        error: 'Lead not found'
+      });
+    }
+    if (error.message === 'Lead already purchased by this contractor') {
+      return res.status(400).json({
+        success: false,
+        error: 'You have already purchased this lead'
+      });
+    }
+    next(error);
+  }
+};
+
+/**
+ * Purchase a lead with credits (Contractor only)
+ */
+exports.purchaseLeadWithCredits = async (req, res, next) => {
+  try {
+    const { leadId } = req.params;
+    const contractorUid = req.user.uid;
+
+    const updatedLead = await purchaseLeadWithCredits(leadId, contractorUid);
+
+    res.json({
+      success: true,
+      lead: updatedLead,
+      message: 'Lead purchased successfully with credits'
+    });
+  } catch (error) {
+    if (error.message === 'Lead not found') {
+      return res.status(404).json({
+        success: false,
+        error: 'Lead not found'
+      });
+    }
+    if (error.message === 'Lead already purchased by this contractor') {
+      return res.status(400).json({
+        success: false,
+        error: 'You have already purchased this lead'
+      });
+    }
+    if (error.message === 'Lead price not set or invalid') {
+      return res.status(400).json({
+        success: false,
+        error: 'This lead is not available for purchase (price not set)'
+      });
+    }
+    if (error.message.includes('Insufficient credits')) {
+      return res.status(400).json({
+        success: false,
+        error: error.message
+      });
+    }
+    next(error);
+  }
+};
+
+/**
+ * Check if contractor has purchased a lead
+ */
+exports.checkLeadPurchase = async (req, res, next) => {
+  try {
+    const { leadId } = req.params;
+    const contractorUid = req.user.uid;
+
+    const hasPurchased = await hasContractorPurchasedLead(leadId, contractorUid);
+
+    res.json({
+      success: true,
+      hasPurchased,
+      leadId,
+      contractorUid
+    });
+  } catch (error) {
     next(error);
   }
 };

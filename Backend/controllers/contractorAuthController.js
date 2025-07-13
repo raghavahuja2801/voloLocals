@@ -12,7 +12,11 @@ const {
   updateContractor,
   updateContractorStatus,
   getContractorsByStatus,
-  migrateContractorsStatus
+  migrateContractorsStatus,
+  getContractorCredits,
+  addContractorCredits,
+  getContractorPurchasedLeads,
+  getContractorTransactions
 } = require('../models/contractorModel');
 
 exports.registerContractor = async (req, res, next) => {    
@@ -307,3 +311,219 @@ exports.checkContractorApproved = async (req, res, next) => {
   }
 };
 
+/**
+ * Get contractor credits balance
+ */
+exports.getContractorCreditsBalance = async (req, res, next) => {
+  try {
+    const contractorUid = req.user.uid;
+    const credits = await getContractorCredits(contractorUid);
+
+    res.json({
+      success: true,
+      credits,
+      contractorUid
+    });
+  } catch (error) {
+    if (error.message === 'Contractor not found') {
+      return res.status(404).json({
+        success: false,
+        error: 'Contractor profile not found'
+      });
+    }
+    next(error);
+  }
+};
+
+/**
+ * Add credits to contractor account (Admin only)
+ */
+exports.addCreditsToContractor = async (req, res, next) => {
+  try {
+    const { contractorId } = req.params;
+    const { amount } = req.body;
+
+    // Validate amount
+    if (typeof amount !== 'number' || amount <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Amount must be a positive number'
+      });
+    }
+
+    const updatedContractor = await addContractorCredits(contractorId, amount, req.user.uid);
+
+    res.json({
+      success: true,
+      contractor: updatedContractor,
+      message: `${amount} credits added successfully`
+    });
+  } catch (error) {
+    if (error.message === 'Contractor not found') {
+      return res.status(404).json({
+        success: false,
+        error: 'Contractor not found'
+      });
+    }
+    next(error);
+  }
+};
+
+/**
+ * Get contractor's purchased leads
+ */
+exports.getContractorPurchasedLeads = async (req, res, next) => {
+  try {
+    const contractorUid = req.user.uid;
+    const { getContractorPurchasedLeads } = require('../models/contractorModel');
+    const { getLeadById } = require('../models/leadModel');
+
+    // Get the array of purchased lead IDs
+    const purchasedLeadIds = await getContractorPurchasedLeads(contractorUid);
+
+    // If no purchased leads, return empty array
+    if (!purchasedLeadIds || purchasedLeadIds.length === 0) {
+      return res.json({
+        success: true,
+        purchasedLeads: [],
+        count: 0,
+        message: 'No purchased leads found'
+      });
+    }
+
+    // Fetch the detailed lead information for each purchased lead
+    const leadsCollection = db.collection('leads');
+    const usersCollection = db.collection('users');
+    
+    const leadPromises = purchasedLeadIds.map(async (leadId) => {
+      try {
+        const leadDoc = await leadsCollection.doc(leadId).get();
+        if (leadDoc.exists) {
+          const leadData = leadDoc.data();
+          
+          // Fetch the user who created this lead for contact details
+          let userContactDetails = null;
+          if (leadData.uid) {
+            try {
+              const userDoc = await usersCollection.doc(leadData.uid).get();
+              if (userDoc.exists) {
+                const userData = userDoc.data();
+                userContactDetails = {
+                  name: userData.name || userData.displayName,
+                  email: userData.email,
+                  phone: userData.phone,
+                  // Don't include sensitive data like uid, role, etc.
+                };
+              }
+            } catch (userError) {
+              console.error(`Error fetching user ${leadData.uid} for lead ${leadId}:`, userError);
+            }
+          }
+          
+          return { 
+            id: leadDoc.id, 
+            ...leadData,
+            leadOwnerContact: userContactDetails
+          };
+        }
+        return null;
+      } catch (error) {
+        console.error(`Error fetching lead ${leadId}:`, error);
+        return null;
+      }
+    });
+
+    const purchasedLeadsData = await Promise.all(leadPromises);
+    // Filter out any null results (leads that couldn't be fetched)
+    const validPurchasedLeads = purchasedLeadsData.filter(lead => lead !== null);
+
+    // Filter out sensitive user data while keeping purchased lead details and contact info
+    const sanitizedLeads = validPurchasedLeads.map(lead => ({
+      id: lead.id,
+      serviceType: lead.serviceType,
+      budget: lead.budget,
+      location: lead.location,
+      urgent: lead.urgent,
+      status: lead.status,
+      priority: lead.priority,
+      createdAt: lead.createdAt,
+      responses: lead.responses,
+      price: lead.price,
+      purchaseCount: lead.purchaseCount,
+      // Include contact preferences from the lead
+      contactPreference: lead.contactPreference,
+      contactTime: lead.contactTime,
+      // Most importantly - include the lead owner's contact details
+      leadOwnerContact: lead.leadOwnerContact,
+      // Exclude: uid (lead owner), purchasedBy array (privacy)
+    }));
+
+    res.json({
+      success: true,
+      purchasedLeads: sanitizedLeads,
+      count: sanitizedLeads.length,
+      message: `Found ${sanitizedLeads.length} purchased leads`
+    });
+
+  } catch (error) {
+    console.error('Error getting contractor purchased leads:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get purchased leads',
+      details: error.message
+    });
+  }
+};
+
+/**
+ * Get contractor's transaction history
+ */
+exports.getContractorTransactions = async (req, res, next) => {
+  try {
+    const contractorUid = req.user.uid;
+    const transactions = await getContractorTransactions(contractorUid);
+    
+    // Sort by timestamp (newest first) - handle both Firestore timestamps and Date objects
+    const sortedTransactions = transactions.sort((a, b) => {
+      let dateA, dateB;
+      
+      // Handle Firestore Timestamp objects
+      if (a.timestamp && typeof a.timestamp.toDate === 'function') {
+        dateA = a.timestamp.toDate();
+      } else if (a.timestamp instanceof Date) {
+        dateA = a.timestamp;
+      } else {
+        dateA = new Date(a.timestamp);
+      }
+      
+      // Handle Firestore Timestamp objects
+      if (b.timestamp && typeof b.timestamp.toDate === 'function') {
+        dateB = b.timestamp.toDate();
+      } else if (b.timestamp instanceof Date) {
+        dateB = b.timestamp;
+      } else {
+        dateB = new Date(b.timestamp);
+      }
+      
+      return dateB - dateA;
+    });
+
+    // Get current contractor data for balance
+    const contractor = await getContractorByUid(contractorUid);
+
+    res.json({
+      success: true,
+      transactions: sortedTransactions,
+      count: sortedTransactions.length,
+      currentBalance: contractor?.credits || 0,
+      message: `Found ${sortedTransactions.length} transactions`
+    });
+  } catch (error) {
+    console.error('Error fetching contractor transactions:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get transaction history',
+      details: error.message
+    });
+  }
+};

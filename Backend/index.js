@@ -9,6 +9,7 @@ const adminRoutes = require('./routes/admin');
 const authRoutes = require('./routes/auth');
 const contractorAuthRoutes = require('./routes/contractorAuth');
 const userRoutes = require('./routes/users');
+const paymentsRoutes = require('./routes/payments');
 const errorHandler = require('./middleware/errorHandling');
 
 // Initialize the Express app and set the port
@@ -36,6 +37,7 @@ app.use('/api/leads', leadRoutes);
 app.use('/api/services', serviceRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/payments', paymentsRoutes);
 
 // Catch-all route for undefined endpoints
 app.use(errorHandler);

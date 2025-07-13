@@ -8,6 +8,8 @@ import {
   Star,
   Filter,
   Search,
+  Plus,
+  Wallet,
 } from "lucide-react";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
@@ -27,6 +29,10 @@ export default function ContractorDashboard() {
   const [purchasedLeads, setPurchasedLeads] = useState(new Set());
   const [selectedLead, setSelectedLead] = useState(null);
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
+  const [creditsBalance, setCreditsBalance] = useState(0);
+  const [loadingCredits, setLoadingCredits] = useState(true);
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   // Additional protection - redirect if not a contractor
   useEffect(() => {
@@ -36,72 +42,138 @@ export default function ContractorDashboard() {
   }, [currentUser, authLoading, navigate]);
 
   // Fetch leads based on contractor's service categories
-  useEffect(() => {
-    const fetchLeads = async () => {
-      if (!currentUser || currentUser.role !== 'contractor') return;
+  const fetchLeads = async () => {
+    if (!currentUser || currentUser.role !== 'contractor') return;
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      // Get contractor's service categories
+      const serviceTypes = currentUser.serviceCategories || [];
       
-      setLoading(true);
-      setError(null);
-      
-      try {
-        // Get contractor's service categories
-        const serviceTypes = currentUser.serviceCategories || [];
-        
-        if (serviceTypes.length === 0) {
-          console.warn('Contractor has no service categories defined');
-          setLeads([]);
-          return;
-        }
-
-        const response = await fetch(`${API_BASE_URL}/api/leads/contractor/bulk`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include',
-          body: JSON.stringify({
-            serviceTypes: serviceTypes
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        
-        if (data.success) {
-          setLeads(data.leads || []);
-          console.log(`Loaded ${data.count} leads for service types:`, data.serviceTypes);
-        } else {
-          throw new Error(data.error || 'Failed to fetch leads');
-        }
-      } catch (err) {
-        console.error('Error fetching leads:', err);
-        setError(err.message);
-      } finally {
-        setLoading(false);
+      if (serviceTypes.length === 0) {
+        console.warn('Contractor has no service categories defined');
+        setLeads([]);
+        return;
       }
-    };
 
+      const response = await fetch(`${API_BASE_URL}/api/leads/contractor/bulk`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          serviceTypes: serviceTypes
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.success) {
+        const leadsData = data.leads || [];
+        setLeads(leadsData);
+        
+        // Check purchase status for each lead
+        await checkPurchaseStatusForLeads(leadsData);
+        
+        console.log(`Loaded ${data.count} leads for service types:`, data.serviceTypes);
+      } else {
+        throw new Error(data.error || 'Failed to fetch leads');
+      }
+    } catch (err) {
+      console.error('Error fetching leads:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchLeads();
   }, [currentUser]);
 
-  const handlePurchaseLead = async (leadId, cost) => {
-    try {
-      // API call to purchase lead
-      const response = await fetch(
-        `${API_BASE_URL}/api/contractor/purchase-lead`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ leadId, cost }),
+  // Fetch contractor credits balance
+  useEffect(() => {
+    const fetchCreditsBalance = async () => {
+      if (!currentUser || currentUser.role !== 'contractor') return;
+      
+      setLoadingCredits(true);
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/contractor/auth/credits`, {
+          credentials: 'include',
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          console.log('Fetched credits balance:', data);
+          setCreditsBalance(data.credits || 0);
+        } else {
+          console.error('Failed to fetch credits balance');
         }
-      );
+      } catch (err) {
+        console.error('Error fetching credits:', err);
+      } finally {
+        setLoadingCredits(false);
+      }
+    };
+
+    fetchCreditsBalance();
+  }, [currentUser]);
+
+  // Check purchase status for leads
+  const checkPurchaseStatusForLeads = async (leadsData) => {
+    const purchased = new Set();
+    
+    try {
+      for (const lead of leadsData) {
+        const response = await fetch(`${API_BASE_URL}/api/leads/${lead.id}/purchase-status`, {
+          credentials: 'include',
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.purchased) {
+            purchased.add(lead.id);
+          }
+        }
+      }
+      
+      setPurchasedLeads(purchased);
+    } catch (err) {
+      console.error('Error checking purchase status:', err);
+    }
+  };
+
+  const handlePurchaseLead = async (leadId, cost, useCredits = false) => {
+    try {
+      const endpoint = useCredits 
+        ? `${API_BASE_URL}/api/leads/${leadId}/purchase-with-credits`
+        : `${API_BASE_URL}/api/leads/${leadId}/purchase`;
+      
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ leadId, cost }),
+      });
 
       if (response.ok) {
+        const data = await response.json();
+        
+        // Update purchased leads
         setPurchasedLeads((prev) => new Set([...prev, leadId]));
+        
+        // Update credits balance if credits were used
+        if (useCredits && data.newBalance !== undefined) {
+          setCreditsBalance(data.newBalance);
+        }
+        
         // Update the lead to show full information
         setLeads((prev) =>
           prev.map((lead) =>
@@ -109,16 +181,33 @@ export default function ContractorDashboard() {
               ? {
                   ...lead,
                   isPreview: false,
-                  fullDescription:
-                    lead.description + " Full details now available!",
-                  customerContact: "john.doe@email.com",
-                  phone: "(555) 123-4567",
+                  fullDescription: lead.description + " Full details now available!",
+                  customerContact: data.lead?.customerContact || "contact@example.com",
+                  phone: data.lead?.phone || "(555) 123-4567",
                 }
               : lead
           )
         );
+        
+        // Close modal
+        setShowPurchaseModal(false);
+        
+        // Show success popup
+        setSuccessMessage(`Lead purchased successfully${useCredits ? ' with credits' : ''}!`);
+        setShowSuccessPopup(true);
+        
+        // Auto-hide popup after 10 seconds
+        setTimeout(() => {
+          setShowSuccessPopup(false);
+        }, 10000);
+        
+        // Refresh leads after a short delay
+        setTimeout(() => {
+          fetchLeads();
+        }, 1000);
       } else {
-        alert("Failed to purchase lead. Please try again.");
+        const errorData = await response.json();
+        alert(errorData.error || "Failed to purchase lead. Please try again.");
       }
     } catch (error) {
       console.error("Error purchasing lead:", error);
@@ -200,7 +289,7 @@ export default function ContractorDashboard() {
       budget: formatBudget(lead.budget),
       postedTime,
       urgency: formatUrgency(lead.urgent),
-      leadCost: lead.leadCost || 10,
+      leadCost: lead.price || lead.leadCost || 0,
       estimatedValue: lead.estimatedValue || 1000,
       homeownerRating: lead.homeownerRating || 4.5,
       isPreview: !purchasedLeads.has(lead.id),
@@ -272,12 +361,45 @@ export default function ContractorDashboard() {
       <main className="flex-grow container mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Welcome back, {currentUser?.displayName || "Contractor"}!
-          </h1>
-          <p className="text-gray-600">
-            Find and purchase quality leads for your business
-          </p>
+          <div className="flex justify-between items-start">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                Welcome back, {currentUser?.displayName || "Contractor"}!
+              </h1>
+              <p className="text-gray-600">
+                Find and purchase quality leads for your business
+              </p>
+            </div>
+            
+            {/* Credits Balance */}
+            <div className="flex items-center space-x-4">
+              <div className="bg-white rounded-lg shadow-md p-4 border">
+                <div className="flex items-center space-x-3">
+                  <Wallet className="h-5 w-5 text-blue-600" />
+                  <div>
+                    <p className="text-sm text-gray-600">Credits Balance</p>
+                    <p className="text-lg font-bold text-gray-900">
+                      {loadingCredits ? (
+                        <span className="animate-pulse">...</span>
+                      ) : (
+                        `$${creditsBalance.toFixed(2)}`
+                      )}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      // TODO: Implement add credits functionality
+                      alert('Add credits functionality coming soon!');
+                    }}
+                    className="bg-blue-600 text-white p-2 rounded-md hover:bg-blue-700 transition-colors"
+                    title="Add Credits"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Stats Cards */}
@@ -335,12 +457,13 @@ export default function ContractorDashboard() {
                 </p>
                 <p className="text-2xl font-bold text-gray-900">
                   $
-                  {Math.round(
-                    filteredLeads.reduce(
-                      (sum, lead) => sum + lead.leadCost,
-                      0
-                    ) / filteredLeads.length
-                  ) || 0}
+                  {(() => {
+                    const leadsWithPrices = filteredLeads.filter(lead => lead.leadCost > 0);
+                    if (leadsWithPrices.length === 0) return 0;
+                    return Math.round(
+                      leadsWithPrices.reduce((sum, lead) => sum + lead.leadCost, 0) / leadsWithPrices.length
+                    );
+                  })()}
                 </p>
               </div>
               <Filter className="h-8 w-8 text-purple-600" />
@@ -471,12 +594,22 @@ export default function ContractorDashboard() {
 
                   {/* Purchase Button */}
                   {lead.isPreview ? (
-                    <button
-                      onClick={() => openPurchaseModal(lead)}
-                      className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors font-medium"
-                    >
-                      Purchase Lead - ${lead.leadCost}
-                    </button>
+                    <div className="space-y-2">
+                      <button
+                        onClick={() => openPurchaseModal(lead)}
+                        className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors font-medium"
+                      >
+                        {lead.leadCost > 0 ? `Purchase Lead - $${lead.leadCost}` : 'Purchase Lead - Price TBD'}
+                      </button>
+                      {lead.leadCost > 0 && creditsBalance >= lead.leadCost && (
+                        <button
+                          onClick={() => handlePurchaseLead(lead.id, lead.leadCost, true)}
+                          className="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition-colors font-medium text-sm"
+                        >
+                          Use Credits - $${lead.leadCost}
+                        </button>
+                      )}
+                    </div>
                   ) : (
                     <div className="w-full bg-green-600 text-white py-2 px-4 rounded-md text-center font-medium">
                       ✓ Lead Purchased
@@ -525,7 +658,33 @@ export default function ContractorDashboard() {
         isOpen={showPurchaseModal}
         onClose={() => setShowPurchaseModal(false)}
         onPurchase={handlePurchaseLead}
+        creditsBalance={creditsBalance}
       />
+
+      {/* Success Popup */}
+      {showSuccessPopup && (
+        <div className="fixed top-4 right-4 z-50 max-w-sm w-full">
+          <div className="bg-green-500 text-white p-4 rounded-lg shadow-lg flex items-center space-x-3 animate-slide-in">
+            <div className="flex-shrink-0">
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <p className="font-medium">{successMessage}</p>
+              <p className="text-sm text-green-100">Refreshing available leads...</p>
+            </div>
+            <button
+              onClick={() => setShowSuccessPopup(false)}
+              className="flex-shrink-0 text-green-200 hover:text-white"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

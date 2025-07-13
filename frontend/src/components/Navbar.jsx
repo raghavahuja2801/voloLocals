@@ -12,13 +12,17 @@ export default function Navbar() {
   const isContractor = currentUser?.role === 'contractor'
 
   const authLinks = isLoggedIn
-    ? [
-        { 
-          label: isContractor ? 'My Leads' : 'My Requests', 
-          href: isContractor ? '/dashboard' : '/requests' 
-        },
-        { label: 'Account', href: '/account' }
-      ]
+    ? (isContractor 
+        ? [
+            { label: 'Browse Leads', href: '/contractor-dashboard' },
+            { label: 'My Leads', href: '/my-leads' },
+            { label: 'Account', href: '/account' }
+          ]
+        : [
+            { label: 'My Requests', href: '/requests' },
+            { label: 'Account', href: '/account' }
+          ]
+      )
     : [
         { label: 'Login', href: '/login' },
         { label: 'Join as a Professional', href: '/join' }

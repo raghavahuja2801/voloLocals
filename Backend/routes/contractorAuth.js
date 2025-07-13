@@ -9,7 +9,11 @@ const {
   updateContractorProfile,
   updateContractorStatus,
   getContractorsByStatus,
-  checkContractorApproved
+  checkContractorApproved,
+  getContractorCreditsBalance,
+  addCreditsToContractor,
+  getContractorPurchasedLeads,
+  getContractorTransactions
 } = require('../controllers/contractorAuthController');
 const authenticate = require('../middleware/authenticate');
 const authenticateRoles = require('../middleware/authorize');
@@ -23,6 +27,15 @@ router.get('/profile', authenticate, getContractorProfile);
 router.put('/profile', authenticate, updateContractorProfile);
 router.post('/logout', authenticate, logoutContractor);
 
+// GET /api/contractor/auth/credits → Get contractor credits balance
+router.get('/credits', authenticate, authenticateRoles('contractor', 'admin'), getContractorCreditsBalance);
+
+// GET /api/contractor/auth/purchased-leads → Get contractor's purchased leads
+router.get('/purchased-leads', authenticate, authenticateRoles('contractor'), getContractorPurchasedLeads);
+
+// GET /api/contractor/auth/transactions → Get contractor's transaction history
+router.get('/transactions', authenticate, authenticateRoles('contractor'), getContractorTransactions);
+
 /**
  * ─── Admin Routes for Contractor Management ────────────────────────────────────
  */
@@ -32,5 +45,8 @@ router.get('/admin/contractors', authenticate, authenticateRoles('admin'), getCo
 
 // PATCH /api/contractor-auth/admin/contractors/:contractorId/status - Update contractor status
 router.patch('/admin/contractors/:contractorId/status', authenticate, authenticateRoles('admin'), updateContractorStatus);
+
+// POST /api/contractor-auth/admin/contractors/:contractorId/credits - Add credits to contractor
+router.post('/admin/contractors/:contractorId/credits', authenticate, authenticateRoles('admin'), addCreditsToContractor);
 
 module.exports = router;

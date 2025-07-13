@@ -31,6 +31,9 @@ async function createContractor(uid, contractorData) {
       days: [],
       hours: ''
     };
+    cleanedData.credits = 0; // Default credits balance
+    cleanedData.purchasedLeads = []; // Array of purchased lead IDs
+    cleanedData.transactions = []; // Array of transaction records
     cleanedData.status = 'pending'; // Default status - pending approval
     cleanedData.approvedAt = null;  // Track when contractor was approved
     cleanedData.approvedBy = null;  // Track which admin approved the contractor
@@ -225,6 +228,200 @@ async function migrateContractorsStatus() {
   }
 }
 
+/**
+ * Get contractor credits balance
+ */
+async function getContractorCredits(uid) {
+  try {
+    const doc = await contractorsCollection.doc(uid).get();
+    if (!doc.exists) {
+      throw new Error('Contractor not found');
+    }
+    return doc.data().credits || 0;
+  } catch (error) {
+    console.error('Error fetching contractor credits:', error);
+    throw error;
+  }
+}
+
+/**
+ * Deduct credits from contractor account with transaction tracking
+ */
+async function deductContractorCredits(uid, amount, transactionDetails = {}) {
+  try {
+    const doc = await contractorsCollection.doc(uid).get();
+    if (!doc.exists) {
+      throw new Error('Contractor not found');
+    }
+
+    const currentCredits = doc.data().credits || 0;
+    if (currentCredits < amount) {
+      throw new Error('Insufficient credits');
+    }
+
+    // Create transaction record
+    const transaction = {
+      id: `txn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      type: 'lead_purchase',
+      amount: -amount, // Negative for deduction
+      description: transactionDetails.description || `Lead purchase - ${amount} credits`,
+      leadId: transactionDetails.leadId || null,
+      timestamp: new Date(), // Use regular Date instead of serverTimestamp
+      status: 'completed',
+      metadata: transactionDetails.metadata || {}
+    };
+
+    await contractorsCollection.doc(uid).update({
+      credits: admin.firestore.FieldValue.increment(-amount),
+      transactions: admin.firestore.FieldValue.arrayUnion(transaction),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    // Return updated contractor data
+    const updatedDoc = await contractorsCollection.doc(uid).get();
+    return { 
+      id: updatedDoc.id, 
+      ...updatedDoc.data(),
+      transactionId: transaction.id
+    };
+  } catch (error) {
+    console.error('Error deducting contractor credits:', error);
+    throw error;
+  }
+}
+
+/**
+ * Add credits to contractor account with transaction tracking
+ */
+async function addContractorCredits(uid, amount, adminUid = null) {
+  try {
+    const doc = await contractorsCollection.doc(uid).get();
+    if (!doc.exists) {
+      throw new Error('Contractor not found');
+    }
+
+    // Create transaction record
+    const transaction = {
+      id: `txn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      type: 'credit_addition',
+      amount: amount, // Positive for addition
+      description: `Credits added by admin - ${amount} credits`,
+      timestamp: new Date(), // Use regular Date instead of serverTimestamp
+      status: 'completed',
+      metadata: {
+        adminId: adminUid
+      }
+    };
+
+    await contractorsCollection.doc(uid).update({
+      credits: admin.firestore.FieldValue.increment(amount),
+      transactions: admin.firestore.FieldValue.arrayUnion(transaction),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    // Return updated contractor data
+    const updatedDoc = await contractorsCollection.doc(uid).get();
+    return { 
+      id: updatedDoc.id, 
+      ...updatedDoc.data(),
+      transactionId: transaction.id
+    };
+  } catch (error) {
+    console.error('Error adding contractor credits:', error);
+    throw error;
+  }
+}
+
+/**
+ * Add a purchased lead to contractor's purchase history
+ */
+async function addPurchasedLead(contractorUid, leadId) {
+  try {
+    const docRef = contractorsCollection.doc(contractorUid);
+    const snap = await docRef.get();
+
+    if (!snap.exists) {
+      throw new Error('Contractor not found');
+    }
+
+    // Add lead ID to purchasedLeads array
+    await docRef.update({
+      purchasedLeads: admin.firestore.FieldValue.arrayUnion(leadId),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return true;
+  } catch (error) {
+    console.error('Error adding purchased lead to contractor:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get contractor's purchased leads
+ */
+async function getContractorPurchasedLeads(contractorUid) {
+  try {
+    const docRef = contractorsCollection.doc(contractorUid);
+    const snap = await docRef.get();
+
+    if (!snap.exists) {
+      throw new Error('Contractor not found');
+    }
+
+    const contractorData = snap.data();
+    return contractorData.purchasedLeads || [];
+  } catch (error) {
+    console.error('Error getting contractor purchased leads:', error);
+    throw error;
+  }
+}
+
+/**
+ * Add a transaction record to contractor's transaction history
+ */
+async function addContractorTransaction(contractorUid, transactionData) {
+  try {
+    const transaction = {
+      id: `txn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      timestamp: new Date(), // Use regular Date instead of serverTimestamp
+      status: 'completed',
+      ...transactionData
+    };
+
+    const docRef = contractorsCollection.doc(contractorUid);
+    await docRef.update({
+      transactions: admin.firestore.FieldValue.arrayUnion(transaction),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return transaction;
+  } catch (error) {
+    console.error('Error adding contractor transaction:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get contractor's transaction history
+ */
+async function getContractorTransactions(contractorUid) {
+  try {
+    const docRef = contractorsCollection.doc(contractorUid);
+    const snap = await docRef.get();
+
+    if (!snap.exists) {
+      throw new Error('Contractor not found');
+    }
+
+    const contractorData = snap.data();
+    return contractorData.transactions || [];
+  } catch (error) {
+    console.error('Error getting contractor transactions:', error);
+    throw error;
+  }
+}
+
 module.exports = {
   createContractor,
   getContractorByUid,
@@ -234,5 +431,12 @@ module.exports = {
   deleteContractor,
   contractorExists,
   getContractorsByServices,
-  migrateContractorsStatus
+  migrateContractorsStatus,
+  getContractorCredits,
+  deductContractorCredits,
+  addContractorCredits,
+  addPurchasedLead,
+  getContractorPurchasedLeads,
+  addContractorTransaction,
+  getContractorTransactions
 };
