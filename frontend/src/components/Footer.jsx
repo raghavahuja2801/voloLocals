@@ -73,9 +73,9 @@ export default function Footer() {
           <div className="text-gray-500 text-center lg:text-left">
             <span>© 2025 voloLocals</span>
             <span className="mx-2">|</span>
-            <a href="/en/gb/terms/" className="hover:text-gray-700 underline">Terms &amp; Conditions</a>
+            <a href="/terms" className="hover:text-gray-700 underline">Terms &amp; Conditions</a>
             <span className="mx-2">|</span>
-            <a href="/en/gb/privacy/" className="hover:text-gray-700 underline">Privacy Policy</a>
+            <a href="/privacy-policy" className="hover:text-gray-700 underline">Privacy Policy</a>
           </div>
         </div>
       </div>

@@ -13,6 +13,7 @@ import ProtectedRoute from './components/ProtectedRoute'
 import ContractorRoute from './components/ContractorRoute'
 import SmartLanding from './components/SmartLanding'
 import TermsandCondition from './pages/TermsandCondition'
+import PrivacyPolicy from './pages/PrivacyPolicy'
 
 function App() {
 
@@ -26,6 +27,7 @@ function App() {
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/join" element={<JoiningPage />} />
         <Route path="/terms" element={<TermsandCondition />} />
+        <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         
         {/* Protected Routes */}
         <Route 
