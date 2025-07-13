@@ -12,7 +12,7 @@ import AdminDashboard from './pages/AdminDashboard'
 import ProtectedRoute from './components/ProtectedRoute'
 import ContractorRoute from './components/ContractorRoute'
 import SmartLanding from './components/SmartLanding'
-import TermsandCondition from './pages/TermsandCondition'
+import TermsandCondition from './pages/TermsAndCoditions'
 import PrivacyPolicy from './pages/PrivacyPolicy'
 
 function App() {
