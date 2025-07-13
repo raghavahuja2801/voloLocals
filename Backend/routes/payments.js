@@ -27,9 +27,7 @@ router.post('/purchase-credits',
 
 // POST /api/payments/stripe-webhook → Handle Stripe webhook events
 // Note: This route should NOT use authentication middleware as it's called by Stripe
-router.post('/stripe-webhook', 
-  express.raw({ type: 'application/json' }), // Stripe requires raw body
-  handleStripeWebhook
-);
+// Raw body parsing is handled in index.js before this route
+router.post('/stripe-webhook', handleStripeWebhook);
 
 module.exports = router;

@@ -33,6 +33,9 @@ export default function ContractorDashboard() {
   const [loadingCredits, setLoadingCredits] = useState(true);
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [showAddCreditsModal, setShowAddCreditsModal] = useState(false);
+  const [creditAmount, setCreditAmount] = useState('');
+  const [isProcessingCredits, setIsProcessingCredits] = useState(false);
 
   // Additional protection - redirect if not a contractor
   useEffect(() => {
@@ -99,32 +102,45 @@ export default function ContractorDashboard() {
   }, [currentUser]);
 
   // Fetch contractor credits balance
-  useEffect(() => {
-    const fetchCreditsBalance = async () => {
-      if (!currentUser || currentUser.role !== 'contractor') return;
-      
-      setLoadingCredits(true);
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/contractor/auth/credits`, {
-          credentials: 'include',
-        });
+  const fetchCreditsBalance = async () => {
+    if (!currentUser || currentUser.role !== 'contractor') return;
+    
+    setLoadingCredits(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/contractor/auth/credits`, {
+        credentials: 'include',
+      });
 
-        if (response.ok) {
-          const data = await response.json();
-          console.log('Fetched credits balance:', data);
-          setCreditsBalance(data.credits || 0);
-        } else {
-          console.error('Failed to fetch credits balance');
-        }
-      } catch (err) {
-        console.error('Error fetching credits:', err);
-      } finally {
-        setLoadingCredits(false);
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Fetched credits balance:', data);
+        setCreditsBalance(data.credits || 0);
+      } else {
+        console.error('Failed to fetch credits balance');
       }
-    };
+    } catch (err) {
+      console.error('Error fetching credits:', err);
+    } finally {
+      setLoadingCredits(false);
+    }
+  };
 
+  useEffect(() => {
     fetchCreditsBalance();
   }, [currentUser]);
+
+  // Refresh credits when window regains focus (user returns from payment)
+  useEffect(() => {
+    const handleWindowFocus = () => {
+      // Small delay to ensure payment processing is complete
+      setTimeout(() => {
+        fetchCreditsBalance();
+      }, 2000);
+    };
+
+    window.addEventListener('focus', handleWindowFocus);
+    return () => window.removeEventListener('focus', handleWindowFocus);
+  }, []);
 
   // Check purchase status for leads
   const checkPurchaseStatusForLeads = async (leadsData) => {
@@ -218,6 +234,63 @@ export default function ContractorDashboard() {
   const openPurchaseModal = (lead) => {
     setSelectedLead(lead);
     setShowPurchaseModal(true);
+  };
+
+  const handleAddCredits = async () => {
+    const amount = parseFloat(creditAmount);
+    
+    // Validate amount
+    if (!amount || amount < 20 || amount > 500) {
+      alert('Please enter an amount between $20 and $500');
+      return;
+    }
+
+    setIsProcessingCredits(true);
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/payments/purchase-credits`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          amount: amount
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Checkout session created:', data);
+        
+        if (data.checkoutUrl) {
+          // Open Stripe checkout in a new tab
+          window.open(data.checkoutUrl, '_blank');
+          
+          // Close the modal
+          setShowAddCreditsModal(false);
+          setCreditAmount('');
+          
+          // Show success message
+          setSuccessMessage('Redirected to payment page. Complete your purchase to add credits.');
+          setShowSuccessPopup(true);
+          
+          setTimeout(() => {
+            setShowSuccessPopup(false);
+          }, 10000);
+        } else {
+          throw new Error('No checkout URL received');
+        }
+      } else {
+        const errorData = await response.json();
+        alert(errorData.error || 'Failed to create checkout session. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error creating checkout session:', error);
+      alert('Error processing request. Please try again.');
+    } finally {
+      setIsProcessingCredits(false);
+    }
   };
 
   const filteredLeads = leads.filter((lead) => {
@@ -387,10 +460,7 @@ export default function ContractorDashboard() {
                     </p>
                   </div>
                   <button
-                    onClick={() => {
-                      // TODO: Implement add credits functionality
-                      alert('Add credits functionality coming soon!');
-                    }}
+                    onClick={() => setShowAddCreditsModal(true)}
                     className="bg-blue-600 text-white p-2 rounded-md hover:bg-blue-700 transition-colors"
                     title="Add Credits"
                   >
@@ -661,6 +731,96 @@ export default function ContractorDashboard() {
         creditsBalance={creditsBalance}
       />
 
+      {/* Add Credits Modal */}
+      {showAddCreditsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-semibold text-gray-900">Add Credits</h3>
+              <button
+                onClick={() => {
+                  setShowAddCreditsModal(false);
+                  setCreditAmount('');
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="creditAmount" className="block text-sm font-medium text-gray-700 mb-2">
+                  Amount ($20 - $500)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-3 text-gray-500">$</span>
+                  <input
+                    type="number"
+                    id="creditAmount"
+                    min="20"
+                    max="500"
+                    step="1"
+                    value={creditAmount}
+                    onChange={(e) => setCreditAmount(e.target.value)}
+                    className="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter amount"
+                  />
+                </div>
+                <p className="text-sm text-gray-500 mt-1">
+                  Minimum: $20 • Maximum: $500
+                </p>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-start space-x-3">
+                  <svg className="h-5 w-5 text-blue-600 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div>
+                    <h4 className="text-sm font-medium text-blue-900">Secure Payment</h4>
+                    <p className="text-sm text-blue-700">
+                      You'll be redirected to our secure payment page to complete your purchase.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex space-x-3 pt-4">
+                <button
+                  onClick={() => {
+                    setShowAddCreditsModal(false);
+                    setCreditAmount('');
+                  }}
+                  className="flex-1 bg-gray-300 text-gray-700 py-3 px-4 rounded-md hover:bg-gray-400 transition-colors font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAddCredits}
+                  disabled={isProcessingCredits || !creditAmount || parseFloat(creditAmount) < 20 || parseFloat(creditAmount) > 500}
+                  className="flex-1 bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-medium"
+                >
+                  {isProcessingCredits ? (
+                    <span className="flex items-center justify-center">
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Processing...
+                    </span>
+                  ) : (
+                    'Continue to Payment'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Success Popup */}
       {showSuccessPopup && (
         <div className="fixed top-4 right-4 z-50 max-w-sm w-full">
@@ -672,7 +832,11 @@ export default function ContractorDashboard() {
             </div>
             <div className="flex-1">
               <p className="font-medium">{successMessage}</p>
-              <p className="text-sm text-green-100">Refreshing available leads...</p>
+              {successMessage.includes('Refreshing') ? (
+                <p className="text-sm text-green-100">Refreshing available leads...</p>
+              ) : (
+                <p className="text-sm text-green-100">Credits will be added after payment completion.</p>
+              )}
             </div>
             <button
               onClick={() => setShowSuccessPopup(false)}

@@ -11,9 +11,11 @@ const {
  */
 exports.createCreditCheckoutSession = async (req, res, next) => {
   try {
+
     const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
     const contractorUid = req.user.uid;
     const { amount } = req.body; // Amount in CAD
+    console.log(`Creating checkout session for contractor ${contractorUid} with amount: ${amount}`);
 
     // Validation
     if (!amount || typeof amount !== 'number' || amount < 20 || amount > 500) {
@@ -75,6 +77,7 @@ exports.createCreditCheckoutSession = async (req, res, next) => {
     };
     
     await addContractorTransaction(contractorUid, transactionData);
+    console.log(`Checkout session created successfully for contractor ${contractorUid}, session ID: ${session.id}`);
 
     res.json({
       success: true,
@@ -118,6 +121,13 @@ exports.createCreditCheckoutSession = async (req, res, next) => {
  */
 exports.handleStripeWebhook = async (req, res, next) => {
   try {
+    console.log('=== STRIPE WEBHOOK DEBUG ===');
+    console.log('Headers:', req.headers['stripe-signature'] ? 'Present' : 'Missing');
+    console.log('Body type:', typeof req.body);
+    console.log('Body is Buffer:', Buffer.isBuffer(req.body));
+    console.log('Body length:', req.body ? req.body.length : 'undefined');
+    console.log('============================');
+
     const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
     const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
     
@@ -126,8 +136,10 @@ exports.handleStripeWebhook = async (req, res, next) => {
 
     try {
       event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
+      console.log('✅ Webhook signature verified successfully');
+      console.log('Event type:', event.type);
     } catch (err) {
-      console.error('Webhook signature verification failed:', err.message);
+      console.error('❌ Webhook signature verification failed:', err.message);
       return res.status(400).send(`Webhook Error: ${err.message}`);
     }
 

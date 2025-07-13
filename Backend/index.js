@@ -18,8 +18,6 @@ const app        = express();
 const PORT       = process.env.PORT || 3000;
 
 
-// Middleware to parse JSON requests
-app.use(express.json());
 // Middleware to parse cookies
 app.use(cookieParser());
 
@@ -28,6 +26,12 @@ app.use(cors({
   origin: true,
   credentials: true
 }));
+
+// IMPORTANT: Handle Stripe webhook with raw body BEFORE general JSON parsing
+app.use('/api/payments/stripe-webhook', express.raw({ type: 'application/json' }));
+
+// Middleware to parse JSON requests (for all other routes)
+app.use(express.json());
 // Auth route 
 app.use('/api/auth', authRoutes);
 app.use('/api/contractor/auth', contractorAuthRoutes);
