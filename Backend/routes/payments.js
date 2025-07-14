@@ -21,9 +21,6 @@ router.post('/purchase-credits',
   createCreditCheckoutSession
 );
 
-/**
- * ─── Webhook Routes ─────────────────────────────────────────────────────────────
- */
 
 
 

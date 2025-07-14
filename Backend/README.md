@@ -1,6 +1,6 @@
 # VoloLocal Backend API
 
-A Node.js/Express backend service for connecting local service providers with customers. The platform enables users to request services, contractors to provide services, and admins to manage the entire ecosystem.
+A Node.js/Express backend service for connecting local service providers with customers. The platform enables users to request services, contractors to provide services, and admins to manage the entire ecosystem with integrated payment processing.
 
 ## 🏗️ Architecture Overview
 
@@ -14,10 +14,11 @@ A Node.js/Express backend service for connecting local service providers with cu
 ├─────────────────────────────────────────────────────────────────┤
 │    Auth Routes    │   Service Routes   │   Lead Routes         │
 │  User Management  │  Admin Controls    │ Contractor Management │
+│                   │  Stripe Payments   │   Credit System       │
 ├─────────────────────────────────────────────────────────────────┤
 │              Middleware & Authentication Layer                 │
 ├─────────────────────────────────────────────────────────────────┤
-│                     Firebase Firestore                         │
+│               Firebase Firestore  │  Stripe Payment Gateway    │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -35,6 +36,16 @@ A Node.js/Express backend service for connecting local service providers with cu
 - Profile and availability management
 - **Credit-based lead purchasing system**
 - **Credit balance management**
+- **Transaction history tracking**
+
+### 💳 Payment System
+- **Stripe integration for credit purchases**
+- **Secure checkout sessions**
+- **Webhook-based payment confirmation**
+- **Real-time transaction updates**
+- **Credit purchase range: $20-$500 CAD**
+- **1 CAD = 1 Credit conversion**
+- **Comprehensive transaction audit trail**
 
 ### 📋 Service Management
 - Dynamic service type creation
@@ -54,6 +65,8 @@ A Node.js/Express backend service for connecting local service providers with cu
 - JWT session management
 - Role-based authorization
 - Input validation and sanitization
+- **Stripe webhook signature verification**
+- **Secure payment processing**
 
 ## 📡 API Endpoints
 
@@ -74,9 +87,16 @@ A Node.js/Express backend service for connecting local service providers with cu
 | PUT | `/profile` | Update contractor profile | Contractor |
 | POST | `/logout` | Contractor logout | Contractor |
 | GET | `/credits` | Get contractor credits balance | Contractor |
+| GET | `/transactions` | Get contractor transaction history | Contractor |
 | GET | `/admin/contractors` | List all contractors | Admin |
 | PATCH | `/admin/contractors/:id/status` | Update contractor status | Admin |
 | POST | `/admin/contractors/:id/credits` | Add credits to contractor | Admin |
+
+### 💳 Payments (`/api/payments`)
+| Method | Endpoint | Description | Access |
+|--------|----------|-------------|--------|
+| POST | `/purchase-credits` | Create Stripe checkout session | Approved Contractor |
+| POST | `/stripe-webhook` | Handle Stripe webhook events | Stripe Webhook |
 
 ### 🛠️ Services (`/api/services`)
 | Method | Endpoint | Description | Access |
@@ -135,6 +155,8 @@ A Node.js/Express backend service for connecting local service providers with cu
 │   ├── serviceCategories[], serviceAreas[]
 │   ├── licenseNumber, availability
 │   ├── credits (default: 0)
+│   ├── purchasedLeads[] (lead IDs)
+│   ├── transactions[] (transaction history)
 │   ├── status: "pending" | "approved" | "rejected" | "suspended"
 │   ├── approvedAt, approvedBy
 │   └── timestamps
@@ -155,6 +177,34 @@ A Node.js/Express backend service for connecting local service providers with cu
     ├── purchaseCount (default: 0)
     ├── purchasedBy[] (contractor UIDs)
     └── timestamps
+```
+
+### Transaction Schema
+```javascript
+// Transaction Object Structure
+{
+  id: "txn_1234567890_abc123",
+  type: "credit_purchase" | "credit_addition" | "lead_purchase",
+  amount: 100, // Amount in CAD
+  description: "Successful credit purchase - 100 CAD",
+  status: "pending" | "completed" | "failed",
+  timestamp: Date, // Creation time
+  completedAt?: Date, // Completion time
+  failedAt?: Date, // Failure time
+  updatedAt?: Date, // Last update time
+  metadata: {
+    stripeSessionId?: "cs_...",
+    stripePaymentIntentId?: "pi_...",
+    stripeChargeId?: "ch_...",
+    stripePaymentStatus?: "paid" | "failed",
+    currency: "CAD",
+    paymentMethod?: "card",
+    amountReceived?: 100.00,
+    error?: "Error message",
+    failureReason?: "Failure details",
+    adminId?: "admin_uid" // For manual credit additions
+  }
+}
 ```
 
 ## 🔧 Environment Setup
@@ -188,6 +238,14 @@ PORT=3000
 NODE_ENV=development
 FIREBASE_API_KEY=your_firebase_api_key
 FIREBASE_PROJECT_ID=your_project_id
+
+# Stripe Configuration
+STRIPE_SECRET_KEY=sk_test_your_stripe_secret_key
+STRIPE_PUBLISHABLE_KEY=pk_test_your_stripe_publishable_key
+STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret
+
+# Frontend URL for Stripe redirects
+FRONTEND_URL=http://localhost:5173
 ```
 
 5. Add Firebase Admin SDK key:
@@ -214,6 +272,7 @@ npm start
 - **dotenv**: Environment variable management
 - **axios**: HTTP client
 - **cookie-parser**: Cookie parsing middleware
+- **stripe**: Stripe payment processing SDK
 
 ### Development Dependencies
 - **nodemon**: Development server with auto-reload
@@ -237,6 +296,26 @@ npm start
 4. Rejected contractors receive error message
 ```
 
+### Credit Purchase Flow
+```
+1. Contractor initiates credit purchase ($20-$500)
+2. System creates transaction record (status: "pending")
+3. Stripe checkout session created with transaction ID
+4. Contractor completes payment on Stripe
+5. Stripe webhook updates transaction (status: "completed")
+6. Credits added to contractor account
+7. Transaction history updated with payment details
+```
+
+### Webhook Security
+```
+1. Stripe sends webhook with signature
+2. Server verifies webhook signature
+3. Processes payment events securely
+4. Updates transaction status accordingly
+5. Handles retries and duplicate events
+```
+
 ## 🛡️ Security Features
 
 - **Firebase Authentication**: Industry-standard authentication
@@ -245,6 +324,9 @@ npm start
 - **Role-Based Access Control**: Fine-grained permissions
 - **Input Validation**: Data sanitization and validation
 - **Error Handling**: Centralized error management
+- **Stripe Webhook Verification**: Cryptographic signature validation
+- **Payment Security**: PCI-compliant payment processing
+- **Transaction Integrity**: Atomic transaction updates
 
 ## 📊 API Response Format
 
@@ -292,6 +374,22 @@ curl -X POST http://localhost:3000/api/contractor/auth/register \
   -H "Content-Type: application/json" \
   -d '{"email":"contractor@example.com","password":"password123","displayName":"Test Contractor","phone":"1234567890","businessName":"Test Business"}'
 
+# Test creating credit purchase checkout session
+curl -X POST http://localhost:3000/api/payments/purchase-credits \
+  -H "Content-Type: application/json" \
+  -H "Cookie: contractorSession=CONTRACTOR_SESSION_COOKIE" \
+  -d '{"amount": 100}'
+
+# Test webhook endpoint (for development only)
+curl -X POST http://localhost:3000/api/payments/stripe-webhook \
+  -H "Content-Type: application/json" \
+  -H "stripe-signature: test_signature" \
+  -d '{"test": "webhook_data"}'
+
+# Test getting contractor transaction history
+curl -X GET http://localhost:3000/api/contractor/auth/transactions \
+  -H "Cookie: contractorSession=CONTRACTOR_SESSION_COOKIE"
+
 # Test setting lead price (Admin only)
 curl -X PATCH http://localhost:3000/api/leads/LEAD_ID/price \
   -H "Content-Type: application/json" \
@@ -314,6 +412,18 @@ curl -X GET http://localhost:3000/api/contractor/auth/credits \
   -H "Cookie: contractorSession=CONTRACTOR_SESSION_COOKIE"
 ```
 
+### Stripe Testing
+```bash
+# Use Stripe test cards for development
+# Success: 4242424242424242
+# Declined: 4000000000000002
+# Insufficient funds: 4000000000009995
+
+# Test webhook with Stripe CLI
+stripe listen --forward-to localhost:3000/api/payments/stripe-webhook
+stripe trigger checkout.session.completed
+```
+
 ## 📈 Monitoring & Logging
 
 - **Request Logging**: All API requests are logged
@@ -330,6 +440,10 @@ curl -X GET http://localhost:3000/api/contractor/auth/credits \
 - [ ] Configure CORS for production domains
 - [ ] Set up monitoring and logging
 - [ ] Configure backup strategies
+- [ ] **Set up Stripe live mode**
+- [ ] **Configure production webhook endpoints**
+- [ ] **Verify SSL certificate for webhooks**
+- [ ] **Set up payment monitoring and alerts**
 
 ## 🤝 Contributing
 
