@@ -333,6 +333,34 @@ async function addContractorCredits(uid, amount, adminUid = null) {
 }
 
 /**
+ * Add credits to contractor account without creating a transaction record
+ * (Used when transaction is created separately, e.g., in webhook handlers)
+ */
+async function updateContractorCredits(uid, amount) {
+  try {
+    const doc = await contractorsCollection.doc(uid).get();
+    if (!doc.exists) {
+      throw new Error('Contractor not found');
+    }
+
+    await contractorsCollection.doc(uid).update({
+      credits: admin.firestore.FieldValue.increment(amount),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    // Return updated contractor data
+    const updatedDoc = await contractorsCollection.doc(uid).get();
+    return { 
+      id: updatedDoc.id, 
+      ...updatedDoc.data()
+    };
+  } catch (error) {
+    console.error('Error updating contractor credits:', error);
+    throw error;
+  }
+}
+
+/**
  * Add a purchased lead to contractor's purchase history
  */
 async function addPurchasedLead(contractorUid, leadId) {
@@ -422,6 +450,48 @@ async function getContractorTransactions(contractorUid) {
   }
 }
 
+/**
+ * Update an existing transaction in contractor's transaction history
+ */
+async function updateContractorTransaction(contractorUid, transactionId, updateData) {
+  try {
+    const docRef = contractorsCollection.doc(contractorUid);
+    const snap = await docRef.get();
+
+    if (!snap.exists) {
+      throw new Error('Contractor not found');
+    }
+
+    const contractorData = snap.data();
+    const transactions = contractorData.transactions || [];
+    
+    // Find the transaction to update
+    const transactionIndex = transactions.findIndex(txn => txn.id === transactionId);
+    
+    if (transactionIndex === -1) {
+      throw new Error('Transaction not found');
+    }
+
+    // Update the transaction
+    transactions[transactionIndex] = {
+      ...transactions[transactionIndex],
+      ...updateData,
+      updatedAt: new Date() // Add update timestamp
+    };
+
+    // Update the contractor document with the modified transactions array
+    await docRef.update({
+      transactions: transactions,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    return transactions[transactionIndex];
+  } catch (error) {
+    console.error('Error updating contractor transaction:', error);
+    throw error;
+  }
+}
+
 module.exports = {
   createContractor,
   getContractorByUid,
@@ -435,8 +505,11 @@ module.exports = {
   getContractorCredits,
   deductContractorCredits,
   addContractorCredits,
+  updateContractorCredits,
   addPurchasedLead,
   getContractorPurchasedLeads,
   addContractorTransaction,
-  getContractorTransactions
+  updateContractorTransaction,
+  getContractorTransactions,
+  updateContractorTransaction
 };

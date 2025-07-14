@@ -1,5 +1,4 @@
 // index.js
-// Import necessary modules and set up the Express app
 const express    = require('express');
 const cookieParser = require('cookie-parser');
 const cors      = require('cors');
@@ -11,6 +10,7 @@ const contractorAuthRoutes = require('./routes/contractorAuth');
 const userRoutes = require('./routes/users');
 const paymentsRoutes = require('./routes/payments');
 const errorHandler = require('./middleware/errorHandling');
+const { handleStripeWebhook } = require('./controllers/paymentsController');
 
 // Initialize the Express app and set the port
 require('dotenv').config();
@@ -27,8 +27,14 @@ app.use(cors({
   credentials: true
 }));
 
-// IMPORTANT: Handle Stripe webhook with raw body BEFORE general JSON parsing
-app.use('/api/payments/stripe-webhook', express.raw({ type: 'application/json' }));
+
+// Middleware to parse raw body for Stripe webhook
+app.post(
+  '/api/payments/stripe-webhook',
+  express.raw({ type: 'application/json' }), // Must be BEFORE express.json()
+  handleStripeWebhook
+);
+
 
 // Middleware to parse JSON requests (for all other routes)
 app.use(express.json());

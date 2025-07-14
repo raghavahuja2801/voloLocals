@@ -88,6 +88,7 @@ export default function TransactionHistory({ currentUser }) {
     switch (type?.toLowerCase()) {
       case 'credit':
       case 'add_credits':
+      case 'credit_purchase':
       case 'deposit':
         return <ArrowUpCircle className="h-5 w-5 text-green-600" />;
       case 'debit':
@@ -103,6 +104,7 @@ export default function TransactionHistory({ currentUser }) {
     switch (type?.toLowerCase()) {
       case 'credit':
       case 'add_credits':
+      case 'credit_purchase':
       case 'deposit':
         return 'text-green-600';
       case 'debit':
@@ -118,6 +120,7 @@ export default function TransactionHistory({ currentUser }) {
     switch (type?.toLowerCase()) {
       case 'credit':
       case 'add_credits':
+      case 'credit_purchase':
       case 'deposit':
         return '+';
       case 'debit':
@@ -152,6 +155,12 @@ export default function TransactionHistory({ currentUser }) {
 
   const filteredTransactions = transactions.filter(transaction => {
     if (filterType === "all") return true;
+    if (filterType === "credit") {
+      return ['credit', 'add_credits', 'credit_purchase', 'deposit'].includes(transaction.type?.toLowerCase());
+    }
+    if (filterType === "purchase") {
+      return ['debit', 'purchase', 'lead_purchase'].includes(transaction.type?.toLowerCase());
+    }
     return transaction.type?.toLowerCase().includes(filterType.toLowerCase());
   });
 
@@ -243,7 +252,7 @@ export default function TransactionHistory({ currentUser }) {
               <p className="text-sm text-gray-600">Credits Added</p>
               <p className="text-lg font-semibold text-green-600">
                 ${transactions
-                  .filter(t => ['credit', 'add_credits', 'deposit'].includes(t.type?.toLowerCase()))
+                  .filter(t => ['credit', 'add_credits', 'credit_purchase', 'deposit'].includes(t.type?.toLowerCase()))
                   .reduce((sum, t) => sum + (t.amount || 0), 0)
                   .toFixed(2)}
               </p>

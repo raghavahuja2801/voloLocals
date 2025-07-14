@@ -9,6 +9,7 @@ import JoiningPage from './pages/JoiningPage'
 import ContractorDashboard from './pages/ContractorDashboard'
 import MyLeads from './pages/MyLeads'
 import AdminDashboard from './pages/AdminDashboard'
+import PaymentStatus from './pages/PaymentStatus'
 import ProtectedRoute from './components/ProtectedRoute'
 import ContractorRoute from './components/ContractorRoute'
 import SmartLanding from './components/SmartLanding'
@@ -28,6 +29,7 @@ function App() {
         <Route path="/join" element={<JoiningPage />} />
         <Route path="/terms" element={<TermsandCondition />} />
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+        <Route path="/contractor" element={<PaymentStatus />} />
         
         {/* Protected Routes */}
         <Route 
