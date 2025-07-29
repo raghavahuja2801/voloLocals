@@ -32,7 +32,7 @@ import Footer from '../components/Footer'
 import ServiceQuestionsModal from '../components/ServiceQuestionsModal'
 import Carousel from '../components/Carousel';
 
-const API_BASE_URL =   'http://localhost:3000'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
 
 export default function LandingPage() {
   const [serviceQuery, setServiceQuery] = useState('')
@@ -95,7 +95,7 @@ export default function LandingPage() {
       <main className="flex-grow w-full py-20 px-4">
         <div className="max-w-3xl mx-auto text-center">
           <h1 className="text-4xl md:text-5xl font-bold text-gray-900">
-            Find the perfect professional for you
+            Find the perfect pro
           </h1>
           <p className="mt-3 text-lg text-gray-600">
             Get free quotes within minutes

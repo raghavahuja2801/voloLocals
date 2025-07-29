@@ -22,8 +22,9 @@ const PORT       = process.env.PORT || 3000;
 app.use(cookieParser());
 
 // Middleware to enable CORS
+// Update your backend's CORS configuration
 app.use(cors({
-  origin: true,
+  origin: true, // Your frontend ngrok URL
   credentials: true
 }));
 

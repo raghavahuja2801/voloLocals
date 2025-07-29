@@ -151,6 +151,7 @@ exports.createCreditCheckoutSession = async (req, res, next) => {
  */
 exports.handleStripeWebhook = async (req, res, next) => {
   try {
+    console.log('🔔 [WEBHOOK] Received Stripe webhook event');
 
 
     const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
@@ -170,6 +171,9 @@ exports.handleStripeWebhook = async (req, res, next) => {
     switch (event.type) {
       case 'checkout.session.completed':
         await handleCheckoutSessionCompleted(event.data.object);
+        break;
+      case 'checkout.session.expired':
+        await handleCheckoutSessionExpired(event.data.object);
         break;
       case 'charge.succeeded':
         await handleChargeSucceeded(event.data.object);
@@ -457,5 +461,56 @@ async function handlePaymentFailed(paymentIntent) {
     console.log(`Recorded failed payment for contractor ${contractorUid}`);
   } catch (error) {
     console.error('Error processing failed payment:', error);
+  }
+}
+
+/**
+ * Handle expired checkout session
+ */
+async function handleCheckoutSessionExpired(session) {
+  try {
+    const contractorUid = session.metadata.contractorUid;
+    const creditAmount = parseInt(session.metadata.creditAmount);
+    const transactionId = session.metadata.transactionId;
+    
+    console.log(`Processing expired session for contractor ${contractorUid}, amount: ${creditAmount}`);
+
+    // Update the existing transaction to cancelled status
+    if (transactionId) {
+      await updateContractorTransaction(contractorUid, transactionId, {
+        status: 'cancelled',
+        description: `Cancelled credit purchase - ${creditAmount} CAD (session expired)`,
+        cancelledAt: new Date(),
+        metadata: {
+          stripeSessionId: session.id,
+          stripePaymentStatus: 'cancelled',
+          currency: 'CAD',
+          cancellationReason: 'checkout_session_expired',
+          amountAttempted: session.amount_total / 100 // Convert from cents
+        }
+      });
+      console.log(`✅ Updated transaction ${transactionId} to cancelled status`);
+    } else {
+      // Fallback: create new cancelled transaction if transactionId is missing (for backward compatibility)
+      const transactionData = {
+        type: 'credit_purchase',
+        amount: creditAmount,
+        description: `Cancelled credit purchase - ${creditAmount} CAD (session expired)`,
+        status: 'cancelled',
+        metadata: {
+          stripeSessionId: session.id,
+          stripePaymentStatus: 'cancelled',
+          currency: 'CAD',
+          cancellationReason: 'checkout_session_expired',
+          amountAttempted: session.amount_total / 100
+        }
+      };
+      await addContractorTransaction(contractorUid, transactionData);
+      console.log(`⚠️ Created new cancelled transaction as fallback (missing transactionId)`);
+    }
+    
+    console.log(`Successfully processed expired session for contractor ${contractorUid}`);
+  } catch (error) {
+    console.error('Error processing expired session:', error);
   }
 }

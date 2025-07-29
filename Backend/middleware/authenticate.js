@@ -4,7 +4,9 @@ async function authenticate(req, res, next) {
   // Check for both session types
   const sessionCookie = req.cookies.session || req.cookies.contractorSession || '';
   if (!sessionCookie) {
+    console.error('No session cookie found');
     return res.status(401).json({ error: 'Not authenticated cause no cookie' });
+    
   }
 
   try {

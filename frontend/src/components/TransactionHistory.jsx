@@ -38,6 +38,7 @@ export default function TransactionHistory({ currentUser }) {
         }
 
         const data = await response.json();
+        console.log('Fetched transactions:', data);
         
         if (data.success) {
           setTransactions(data.transactions || []);

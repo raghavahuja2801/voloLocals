@@ -665,19 +665,26 @@ export default function ContractorDashboard() {
                   {/* Purchase Button */}
                   {lead.isPreview ? (
                     <div className="space-y-2">
-                      <button
-                        onClick={() => openPurchaseModal(lead)}
-                        className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors font-medium"
-                      >
-                        {lead.leadCost > 0 ? `Purchase Lead - $${lead.leadCost}` : 'Purchase Lead - Price TBD'}
-                      </button>
-                      {lead.leadCost > 0 && creditsBalance >= lead.leadCost && (
-                        <button
-                          onClick={() => handlePurchaseLead(lead.id, lead.leadCost, true)}
-                          className="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition-colors font-medium text-sm"
-                        >
-                          Use Credits - $${lead.leadCost}
-                        </button>
+                      {lead.leadCost > 0 ? (
+                        creditsBalance >= lead.leadCost ? (
+                          <button
+                            onClick={() => handlePurchaseLead(lead.id, lead.leadCost, true)}
+                            className="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition-colors font-medium"
+                          >
+                            Use Credits - ${lead.leadCost}
+                          </button>
+                        ) : (
+                          <div className="w-full border-2 border-gray-300 text-gray-500 py-2 px-4 rounded-md text-center font-medium">
+                            Insufficient Credits - $${lead.leadCost} required
+                            <div className="text-sm mt-1">
+                              Current balance: ${creditsBalance.toFixed(2)}
+                            </div>
+                          </div>
+                        )
+                      ) : (
+                        <div className="w-full bg-gray-400 text-white py-2 px-4 rounded-md text-center font-medium cursor-not-allowed">
+                          Price TBD
+                        </div>
                       )}
                     </div>
                   ) : (

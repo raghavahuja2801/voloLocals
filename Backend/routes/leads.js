@@ -70,12 +70,6 @@ router.delete('/:id', authorizeRoles('user', 'admin'), deleteLead);
 // PATCH /api/leads/:leadId/price → Set price for a lead (Admin only)
 router.patch('/:leadId/price', authenticateRoles('admin'), setLeadPrice);
 
-// POST /api/leads/:leadId/purchase → Purchase a lead (Approved Contractor only)
-router.post('/:leadId/purchase', 
-  authenticateRoles('contractor'), 
-  checkContractorApproved,
-  purchaseLeadByContractor
-);
 
 // POST /api/leads/:leadId/purchase-with-credits → Purchase a lead with credits (Approved Contractor only)
 router.post('/:leadId/purchase-with-credits', 
